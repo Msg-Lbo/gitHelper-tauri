@@ -74,12 +74,9 @@
 
             <!-- 登录状态显示 -->
             <div v-if="isLoggedIn" class="login-status">
-                <n-alert type="success" title="登录成功">
-                    <div class="status-content">
-                        <p>当前已登录OA系统</p>
-                        <n-button size="small" @click="handleLogout">退出登录</n-button>
-                    </div>
-                </n-alert>
+                <div class="status-content">
+                    <n-button size="small" @click="handleLogout">退出登录</n-button>
+                </div>
             </div>
         </div>
     </div>
@@ -87,18 +84,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
-import { NForm, NFormItem, NInput, NButton, NCheckbox, NIcon, NSpin, NAlert, useMessage, type FormInst, type FormRules } from "naive-ui";
+import { NForm, NFormItem, NInput, NButton, NCheckbox, NIcon, NSpin, useMessage, type FormInst, type FormRules } from "naive-ui";
 import { PersonOutline, LockClosedOutline, ShieldCheckmarkOutline } from "@vicons/ionicons5";
-import {
-    getCaptchaImage,
-    login,
-    encodeBase64,
-    validatePhone,
-    validateCaptcha,
-    OATokenManager,
-    OAAccountManager,
-    type LoginParams,
-} from "../api/oa";
+import { getCaptchaImage, login, encodeBase64, OATokenManager, OAAccountManager, type LoginParams } from "../api/oa";
 
 // 消息提示
 const message = useMessage();
@@ -154,8 +142,7 @@ const handleLogin = async () => {
     if (!formRef.value) return;
 
     try {
-        const errors = await formRef.value.validate();
-        if (errors) return;
+        await formRef.value.validate();
 
         loginLoading.value = true;
 
