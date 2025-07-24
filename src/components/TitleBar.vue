@@ -86,21 +86,4 @@ const handleClose = async () => {
     }
   }
 }
-
-/* 工具类 */
-.flex {
-  display: flex;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.align-center {
-  align-items: center;
-}
-
-.gap-10 {
-  gap: 10px;
-}
 </style>

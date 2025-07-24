@@ -6,6 +6,7 @@ async fn select_directory(app: tauri::AppHandle) -> Result<Option<String>, Strin
     use tauri_plugin_dialog::DialogExt;
     use std::sync::{Arc, Mutex};
     use tokio::sync::oneshot;
+    use std::path::Path;
 
     let (tx, rx) = oneshot::channel();
     let tx = Arc::new(Mutex::new(Some(tx)));
@@ -19,9 +20,19 @@ async fn select_directory(app: tauri::AppHandle) -> Result<Option<String>, Strin
     });
 
     match rx.await {
-        Ok(Some(path)) => Ok(Some(path.to_string())),
+        Ok(Some(path)) => {
+            let path_str = path.to_string();
+
+            // 检查选择的目录是否包含 .git 文件夹
+            let git_path = Path::new(&path_str).join(".git");
+            if !git_path.exists() {
+                return Err("该文件夹未进行git初始化或不是项目文件夹".to_string());
+            }
+
+            Ok(Some(path_str))
+        },
         Ok(None) => Ok(None),
-        Err(_) => Err("Failed to receive folder selection result".to_string()),
+        Err(_) => Err("选择目录失败".to_string()),
     }
 }
 
@@ -106,6 +117,7 @@ async fn window_close(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
 }
 
+// Tauri 应用程序入口
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -128,5 +140,5 @@ pub fn run() {
             window_close
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("运行Tauri应用程序时出错");
 }

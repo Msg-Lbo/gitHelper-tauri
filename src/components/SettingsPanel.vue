@@ -1,61 +1,51 @@
 <template>
-  <div class="settings-panel">
-    <n-form label-width="80" size="small">
-      <n-grid :cols="4" :x-gap="24">
-        <n-gi>
-          <n-form-item label="Token">
-            <n-input v-model:value="form.token" placeholder="请输入Token" size="small" />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="Git用户名">
-            <n-input v-model:value="form.gitUser" placeholder="请输入Git用户名" size="small" />
-          </n-form-item>
-        </n-gi>
-
-      </n-grid>
-      <n-form-item label="日报模板">
-        <n-input
-          v-model:value="form.dailyTemplate"
-          type="textarea"
-          placeholder="请输入日报模板"
-          size="small"
-          :autosize="{ minRows: 6, maxRows: 6 }"
-          class="template-input"
-        />
-      </n-form-item>
-      <n-form-item label="周报模板">
-        <n-input
-          v-model:value="form.weeklyTemplate"
-          type="textarea"
-          placeholder="请输入周报模板"
-          size="small"
-          :autosize="{ minRows: 6, maxRows: 6 }"
-          class="template-input"
-        />
-      </n-form-item>
-    </n-form>
-    <div class="actions">
-      <n-space justify="end" gap="12px">
-        <n-button type="primary" size="small" @click="saveSettings">保存</n-button>
-        <n-button size="small" @click="restoreDefault">恢复默认</n-button>
-      </n-space>
+    <div class="settings-panel">
+        <n-form label-width="80" size="small">
+            <n-grid :cols="4" :x-gap="24">
+                <n-gi>
+                    <n-form-item label="Token">
+                        <n-input v-model:value="form.token" placeholder="请输入Token" size="small" />
+                    </n-form-item>
+                </n-gi>
+                <n-gi>
+                    <n-form-item label="Git用户名">
+                        <n-input v-model:value="form.gitUser" placeholder="请输入Git用户名" size="small" />
+                    </n-form-item>
+                </n-gi>
+            </n-grid>
+            <n-form-item label="日报模板">
+                <n-input
+                    v-model:value="form.dailyTemplate"
+                    type="textarea"
+                    placeholder="请输入日报模板"
+                    size="small"
+                    :autosize="{ minRows: 6, maxRows: 6 }"
+                    class="template-input"
+                />
+            </n-form-item>
+            <n-form-item label="周报模板">
+                <n-input
+                    v-model:value="form.weeklyTemplate"
+                    type="textarea"
+                    placeholder="请输入周报模板"
+                    size="small"
+                    :autosize="{ minRows: 6, maxRows: 6 }"
+                    class="template-input"
+                />
+            </n-form-item>
+        </n-form>
+        <div class="actions">
+            <n-space justify="end" gap="12px">
+                <n-button type="primary" size="small" @click="saveSettings">保存</n-button>
+                <n-button size="small" @click="restoreDefault">恢复默认</n-button>
+            </n-space>
+        </div>
     </div>
-  </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import {
-  NForm,
-  NFormItem,
-  NInput,
-  NButton,
-  useMessage,
-  NSpace,
-  NGrid,
-  NGi
-} from 'naive-ui'
+import { ref } from "vue";
+import { NForm, NFormItem, NInput, NButton, useMessage, NSpace, NGrid, NGi } from "naive-ui";
 
 const DEFAULT_DAILY = `你是一位专业的团队领导，你的任务是分析 Git commit 日志并生成一份清晰的工作总结。
 请遵循以下规则:
@@ -70,7 +60,7 @@ const DEFAULT_DAILY = `你是一位专业的团队领导，你的任务是分析
 Commit 日志:
 {commit_logs}
 
-请开始生成工作总结:`
+请开始生成工作总结:`;
 
 const DEFAULT_WEEKLY = `你是一个顶级的项目经理和技术领导。请根据下面按天和项目分组的 Git 提交记录，生成一份高度概括、重点突出、语言流畅的中文周报。
 
@@ -92,59 +82,58 @@ const DEFAULT_WEEKLY = `你是一个顶级的项目经理和技术领导。请�
 星期六：[项目名]：修复米林APPbug
 
 [待总结的 Commit 记录]
-{commit_logs}`
+{commit_logs}`;
 
-const LOCAL_KEY = 'githelper-settings'
+const LOCAL_KEY = "githelper-settings";
 const defaultForm = {
-  token: '',
-  gitUser: '',
-  dailyTemplate: DEFAULT_DAILY,
-  weeklyTemplate: DEFAULT_WEEKLY
-}
-const form = ref({ ...defaultForm })
-const message = useMessage()
-const emit = defineEmits(['save'])
+    token: "",
+    gitUser: "",
+    dailyTemplate: DEFAULT_DAILY,
+    weeklyTemplate: DEFAULT_WEEKLY,
+};
+const form = ref({ ...defaultForm });
+const message = useMessage();
+const emit = defineEmits(["save"]);
 
 const loadSettings = () => {
-  const raw = localStorage.getItem(LOCAL_KEY)
-  if (raw) {
-    try {
-      Object.assign(form.value, JSON.parse(raw))
-    } catch {}
-  }
-}
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (raw) {
+        try {
+            Object.assign(form.value, JSON.parse(raw));
+        } catch {}
+    }
+};
 
 const saveSettings = () => {
-  localStorage.setItem(LOCAL_KEY, JSON.stringify(form.value))
-  emit('save')
-  message.success('保存成功')
-}
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(form.value));
+    emit("save");
+    message.success("保存成功");
+};
 
 const restoreDefault = () => {
-  form.value.dailyTemplate = DEFAULT_DAILY
-  form.value.weeklyTemplate = DEFAULT_WEEKLY
-  saveSettings()
-  message.success('已恢复默认模板')
-}
+    form.value.dailyTemplate = DEFAULT_DAILY;
+    form.value.weeklyTemplate = DEFAULT_WEEKLY;
+    saveSettings();
+    message.success("已恢复默认模板");
+};
 
-loadSettings()
+loadSettings();
 </script>
 
 <style scoped lang="scss">
 .settings-panel {
-  width: 100%;
-  min-width: 400px;
-  max-width: 900px;
-  margin: 0 auto;
+    width: 100%;
+    min-width: 400px;
+    max-width: 900px;
+    margin: 0 auto;
 
-  ::v-deep(.n-form-item .n-form-item-feedback-wrapper) {
-    min-height: 18px;
-  }
-}
-
-.template-input {
-  width: 100%;
-  min-width: 300px;
-  max-width: 100%;
+    ::v-deep(.n-form-item .n-form-item-feedback-wrapper) {
+        min-height: 18px;
+    }
+    .template-input {
+        width: 100%;
+        min-width: 300px;
+        max-width: 100%;
+    }
 }
 </style>
