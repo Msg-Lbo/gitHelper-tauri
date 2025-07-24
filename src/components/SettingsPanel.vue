@@ -12,16 +12,7 @@
             <n-input v-model:value="form.gitUser" placeholder="请输入Git用户名" size="small" />
           </n-form-item>
         </n-gi>
-        <n-gi>
-          <n-form-item label="OA账号">
-            <n-input v-model:value="form.oaAccount" placeholder="请输入OA账号" size="small" />
-          </n-form-item>
-        </n-gi>
-        <n-gi>
-          <n-form-item label="OA密码">
-            <n-input v-model:value="form.oaPassword" placeholder="请输入OA密码" size="small" />
-          </n-form-item>
-        </n-gi>
+
       </n-grid>
       <n-form-item label="日报模板">
         <n-input
@@ -108,9 +99,7 @@ const defaultForm = {
   token: '',
   gitUser: '',
   dailyTemplate: DEFAULT_DAILY,
-  weeklyTemplate: DEFAULT_WEEKLY,
-  oaAccount: '',
-  oaPassword: ''
+  weeklyTemplate: DEFAULT_WEEKLY
 }
 const form = ref({ ...defaultForm })
 const message = useMessage()

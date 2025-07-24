@@ -1,54 +1,92 @@
 use std::process::Command;
 
-// Tauri 命令：选择目录 (暂时禁用，需要 dialog 插件)
-// #[tauri::command]
-// async fn select_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
-//     use tauri_plugin_dialog::DialogExt;
-//     use std::sync::{Arc, Mutex};
-//     use tokio::sync::oneshot;
-//
-//     let (tx, rx) = oneshot::channel();
-//     let tx = Arc::new(Mutex::new(Some(tx)));
-//
-//     app.dialog().file().pick_folder(move |folder_path| {
-//         if let Ok(mut sender) = tx.lock() {
-//             if let Some(tx) = sender.take() {
-//                 let _ = tx.send(folder_path);
-//             }
-//         }
-//     });
-//
-//     match rx.await {
-//         Ok(Some(path)) => Ok(Some(path.to_string())),
-//         Ok(None) => Ok(None),
-//         Err(_) => Err("Failed to receive folder selection result".to_string()),
-//     }
-// }
+// Tauri 命令：选择目录
+#[tauri::command]
+async fn select_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    use std::sync::{Arc, Mutex};
+    use tokio::sync::oneshot;
+
+    let (tx, rx) = oneshot::channel();
+    let tx = Arc::new(Mutex::new(Some(tx)));
+
+    app.dialog().file().pick_folder(move |folder_path| {
+        if let Ok(mut sender) = tx.lock() {
+            if let Some(tx) = sender.take() {
+                let _ = tx.send(folder_path);
+            }
+        }
+    });
+
+    match rx.await {
+        Ok(Some(path)) => Ok(Some(path.to_string())),
+        Ok(None) => Ok(None),
+        Err(_) => Err("Failed to receive folder selection result".to_string()),
+    }
+}
 
 // Tauri 命令：执行 Git 命令
 #[tauri::command]
 async fn run_git_log(command: String, project_path: String) -> Result<String, String> {
-    let output = if cfg!(target_os = "windows") {
-        Command::new("cmd")
-            .args(["/C", &format!("cd /d \"{}\" && {}", project_path, command)])
-            .output()
+    // 验证项目路径是否存在
+    if !std::path::Path::new(&project_path).exists() {
+        return Err(format!("项目路径不存在: {}", project_path));
+    }
+
+    // 处理Windows UNC路径问题
+    let working_path = if project_path.starts_with(r"\\?\") {
+        project_path.strip_prefix(r"\\?\").unwrap_or(&project_path).to_string()
     } else {
-        Command::new("sh")
-            .args(["-c", &format!("cd \"{}\" && export LANG=zh_CN.UTF-8 && {}", project_path, command)])
-            .output()
+        project_path.clone()
     };
+
+    // 验证处理后的路径
+    if !std::path::Path::new(&working_path).exists() {
+        return Err(format!("处理后的路径不存在: {} (原路径: {})", working_path, project_path));
+    }
+
+    // 使用PowerShell执行Git命令，正确处理引号和中文路径
+    let output = Command::new("powershell")
+        .arg("-Command")
+        .arg(&command)
+        .current_dir(&working_path)
+        .env("LANG", "zh_CN.UTF-8")
+        .env("LC_ALL", "zh_CN.UTF-8")
+        .output();
 
     match output {
         Ok(output) => {
-            if output.status.success() {
-                Ok(String::from_utf8_lossy(&output.stdout).to_string())
-            } else {
-                Ok(String::from_utf8_lossy(&output.stderr).to_string())
+            if !output.status.success() {
+                let error_bytes = &output.stderr;
+                let error_msg = if error_bytes.is_empty() {
+                    "命令执行失败，但没有错误信息".to_string()
+                } else {
+                    // 尝试解码错误信息，支持UTF-8和GBK编码
+                    match String::from_utf8(error_bytes.to_vec()) {
+                        Ok(s) => s,
+                        Err(_) => {
+                            let (decoded_str, _, _) = encoding_rs::GBK.decode(error_bytes);
+                            decoded_str.into_owned()
+                        }
+                    }
+                };
+                return Err(format!("Git命令执行失败: {}", error_msg.trim()));
+            }
+
+            // 处理成功的输出，支持UTF-8和GBK编码
+            let bytes = &output.stdout;
+            match String::from_utf8(bytes.to_vec()) {
+                Ok(s) => Ok(s),
+                Err(_) => {
+                    let (decoded_str, _, _) = encoding_rs::GBK.decode(bytes);
+                    Ok(decoded_str.into_owned())
+                }
             }
         }
-        Err(e) => Err(format!("Failed to execute command: {}", e)),
+        Err(e) => Err(format!("执行命令时发生系统错误: {} (项目路径: {})", e, working_path)),
     }
 }
+
 
 // Tauri 命令：获取应用版本
 #[tauri::command]
@@ -71,6 +109,7 @@ async fn window_close(window: tauri::Window) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -82,6 +121,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            select_directory,
             run_git_log,
             get_app_version,
             window_minimize,
