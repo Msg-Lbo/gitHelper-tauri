@@ -12,6 +12,16 @@
                         <n-input v-model:value="form.gitUser" placeholder="请输入Git用户名" size="small" />
                     </n-form-item>
                 </n-gi>
+                <n-gi>
+                    <n-form-item label="OA账号">
+                        <n-input v-model:value="form.oaAccount" placeholder="请输入OA账号" size="small" />
+                    </n-form-item>
+                </n-gi>
+                <n-gi>
+                    <n-form-item label="OA密码">
+                        <n-input v-model:value="form.oaPassword" type="password" placeholder="请输入OA密码" size="small" show-password-on="click" />
+                    </n-form-item>
+                </n-gi>
             </n-grid>
             <n-form-item label="日报模板">
                 <n-input
@@ -88,6 +98,8 @@ const LOCAL_KEY = "githelper-settings";
 const defaultForm = {
     token: "",
     gitUser: "",
+    oaAccount: "",
+    oaPassword: "",
     dailyTemplate: DEFAULT_DAILY,
     weeklyTemplate: DEFAULT_WEEKLY,
 };
