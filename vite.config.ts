@@ -13,13 +13,13 @@ export default defineConfig({
         secure: true,
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
-            console.log('proxy error', err);
+            console.log('代理错误：', err);
           });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
+          proxy.on('proxyReq', (_proxyReq, req, _res) => {
+            console.log('发送请求到目标：', req.method, req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+            console.log('从目标接收响应：', proxyRes.statusCode, req.url);
           });
         },
       }
