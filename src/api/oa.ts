@@ -36,6 +36,56 @@ export interface ApiResponse<T = any> {
   data?: T
 }
 
+// 项目列表请求参数接口
+export interface ProjectListParams {
+  projectName: string
+  pageNum: number
+  pageSize: number
+}
+
+// 项目信息接口
+export interface ProjectInfo {
+  id: string
+  contractId: string
+  projectCode: string
+  projectName: string
+  type: number
+  startTime: string
+  endTime: string
+  realityEndTime?: string
+  schedule: number
+  stage: string
+  status: string
+  stageName: string
+  statusName: string
+  userId?: string
+}
+
+// 分页信息接口
+export interface PageInfo<T> {
+  total: number
+  list: T[]
+  pageNum: number
+  pageSize: number
+  size: number
+  startRow: number
+  endRow: number
+  pages: number
+  prePage: number
+  nextPage: number
+  isFirstPage: boolean
+  isLastPage: boolean
+  hasPreviousPage: boolean
+  hasNextPage: boolean
+  navigatePages: number
+  navigatepageNums: number[]
+  navigateFirstPage: number
+  navigateLastPage: number
+}
+
+// 项目列表响应接口
+export interface ProjectListResponse extends ApiResponse<PageInfo<ProjectInfo>> {}
+
 /**
  * HTTP请求拦截器
  * 统一处理请求和响应
@@ -77,30 +127,51 @@ class OAApiClient {
    */
   private async request<T>(url: string, options: RequestInit): Promise<T> {
     const fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`
-    
+
+    // 获取token并添加到请求头
+    const token = OATokenManager.getToken()
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      ...options.headers as Record<string, string>
+    }
+
+    // 如果有token且不是登录或验证码接口，则添加Authorization头
+    if (token && !url.includes('/login') && !url.includes('/captchaImage')) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
     try {
-      console.log(`[OA API] 请求: ${options.method} ${fullUrl}`)
-      
+      console.log(`[OA API] 请求: ${options.method} ${fullUrl}`, token ? '(带token)' : '(无token)')
+
       const response = await fetch(fullUrl, {
         ...options,
-        headers: {
-          'Accept': 'application/json',
-          ...options.headers
-        }
+        headers
       })
 
       // 检查HTTP状态码
       if (!response.ok) {
+        // 处理401未授权错误
+        if (response.status === 401) {
+          console.warn('[OA API] Token已过期或无效，清除本地token')
+          OATokenManager.clearToken()
+          throw new Error('登录已过期，请重新登录')
+        }
         throw new Error(`HTTP错误: ${response.status} ${response.statusText}`)
       }
 
       const result = await response.json()
-      
+
       console.log(`[OA API] 响应:`, result)
-      
-      // 注意：OA系统的HTTP状态码始终为200，需要检查响应体中的code字段
+
+      // 检查响应体中的code字段，某些接口可能返回401在响应体中
+      if (result.code === 401) {
+        console.warn('[OA API] 响应中检测到401错误，清除本地token')
+        OATokenManager.clearToken()
+        throw new Error('登录已过期，请重新登录')
+      }
+
       return result as T
-      
+
     } catch (error) {
       console.error(`[OA API] 请求失败:`, error)
       throw error
@@ -138,21 +209,6 @@ export const encodeBase64 = (str: string): string => {
     console.error('Base64编码失败:', error)
     throw new Error('密码编码失败')
   }
-}
-
-/**
- * 验证手机号格式
- */
-export const validatePhone = (phone: string): boolean => {
-  const phoneRegex = /^1[3-9]\d{9}$/
-  return phoneRegex.test(phone)
-}
-
-/**
- * 验证验证码格式
- */
-export const validateCaptcha = (code: string): boolean => {
-  return code.length === 4 && /^\d{4}$/.test(code)
 }
 
 /**
@@ -271,4 +327,13 @@ export class OAAccountManager {
       console.error('[OA Account] 清除账户信息失败:', error)
     }
   }
+}
+
+/**
+ * 获取我的项目列表
+ * @param params 查询参数
+ * @returns 项目列表响应
+ */
+export const getMyProjectList = async (params: ProjectListParams): Promise<ProjectListResponse> => {
+  return apiClient.post<ProjectListResponse>('/backend/project/myProjectList', params)
 }

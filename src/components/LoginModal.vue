@@ -1,59 +1,74 @@
 <template>
-    <div class="oa-login">
-        <div class="login-container">
-            <n-form
-                ref="formRef"
-                :model="loginForm"
-                :rules="formRules"
-                size="medium"
-                class="login-form"
-                label-width="55"
-                label-placement="left"
-            >
+    <n-modal
+        v-model:show="showModal"
+        preset="card"
+        size="small"
+        :bordered="false"
+        :closable="false"
+        :mask-closable="false"
+        style="width: 320px"
+        @close="handleClose"
+    >
+        <!-- 自定义标题栏 -->
+        <template #header>
+            <div class="modal-header">
+                <div class="header-spacer"></div>
+                <n-button quaternary circle size="small" class="close-btn" @click="handleClose">
+                    <template #icon>
+                        <n-icon size="16"><CloseOutline /></n-icon>
+                    </template>
+                </n-button>
+            </div>
+        </template>
+
+        <div class="login-modal-content">
+            <n-form ref="formRef" :model="loginForm" :rules="formRules" size="medium" class="login-form" :show-label="false">
                 <!-- 用户名输入框 -->
-                <n-form-item path="username" label="用户名">
+                <n-form-item path="username" class="form-item">
                     <n-input
                         v-model:value="loginForm.username"
                         placeholder="请输入手机号"
                         clearable
+                        class="styled-input"
                         :input-props="{ autocomplete: 'username' }"
                         @keyup.enter="handleLogin"
                     >
                         <template #prefix>
-                            <n-icon><PersonOutline /></n-icon>
+                            <n-icon size="16" color="#7fe7c4"><PersonOutline /></n-icon>
                         </template>
                     </n-input>
                 </n-form-item>
 
                 <!-- 密码输入框 -->
-                <n-form-item path="password" label="密码">
+                <n-form-item path="password" class="form-item">
                     <n-input
                         v-model:value="loginForm.password"
                         type="password"
                         placeholder="请输入密码"
                         show-password-on="click"
                         clearable
+                        class="styled-input"
                         :input-props="{ autocomplete: 'current-password' }"
                         @keyup.enter="handleLogin"
                     >
                         <template #prefix>
-                            <n-icon><LockClosedOutline /></n-icon>
+                            <n-icon size="16" color="#7fe7c4"><LockClosedOutline /></n-icon>
                         </template>
                     </n-input>
                 </n-form-item>
 
                 <!-- 验证码输入框 -->
-                <n-form-item path="code" label="验证码">
+                <n-form-item path="code" class="form-item">
                     <div class="captcha-container">
                         <n-input
                             v-model:value="loginForm.code"
                             placeholder="请输入验证码"
                             clearable
-                            class="captcha-input"
+                            class="styled-input captcha-input"
                             @keyup.enter="handleLogin"
                         >
                             <template #prefix>
-                                <n-icon><ShieldCheckmarkOutline /></n-icon>
+                                <n-icon size="16" color="#7fe7c4"><ShieldCheckmarkOutline /></n-icon>
                             </template>
                         </n-input>
                         <div class="captcha-image" @click="refreshCaptcha" :title="captchaImage ? '点击刷新验证码' : '加载中...'">
@@ -64,35 +79,47 @@
                 </n-form-item>
 
                 <!-- 保存账户信息复选框 -->
-                <n-form-item>
-                    <n-checkbox v-model:checked="saveAccount"> 保存账户信息 </n-checkbox>
+                <n-form-item class="form-item checkbox-item">
+                    <n-checkbox v-model:checked="saveAccount" size="small"> 保存账户信息 </n-checkbox>
                 </n-form-item>
 
                 <!-- 登录按钮 -->
-                <n-button type="primary" size="large" block :loading="loginLoading" @click="handleLogin"> 登录 </n-button>
+                <n-button type="primary" size="medium" block :loading="loginLoading" @click="handleLogin" class="login-button">
+                    {{ loginLoading ? "登录中..." : "登录" }}
+                </n-button>
             </n-form>
-
-            <!-- 登录状态显示 -->
-            <div v-if="isLoggedIn" class="login-status">
-                <div class="status-content">
-                    <n-button size="small" @click="handleLogout">退出登录</n-button>
-                </div>
-            </div>
         </div>
-    </div>
+    </n-modal>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from "vue";
-import { NForm, NFormItem, NInput, NButton, NCheckbox, NIcon, NSpin, useMessage, type FormInst, type FormRules } from "naive-ui";
-import { PersonOutline, LockClosedOutline, ShieldCheckmarkOutline } from "@vicons/ionicons5";
+import { ref, reactive, watch, onMounted } from "vue";
+import { NModal, NForm, NFormItem, NInput, NButton, NCheckbox, NIcon, NSpin, useMessage, type FormInst, type FormRules } from "naive-ui";
+import { PersonOutline, LockClosedOutline, ShieldCheckmarkOutline, CloseOutline } from "@vicons/ionicons5";
 import { getCaptchaImage, login, encodeBase64, OATokenManager, OAAccountManager, type LoginParams } from "../api/oa";
+
+// 定义组件属性
+interface Props {
+    show: boolean;
+}
+
+// 定义组件事件
+interface Emits {
+    (e: "update:show", value: boolean): void;
+    (e: "login-success"): void;
+}
+
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
 
 // 消息提示
 const message = useMessage();
 
 // 表单引用
 const formRef = ref<FormInst | null>(null);
+
+// 内部显示状态
+const showModal = ref(false);
 
 // 登录表单数据
 const loginForm = reactive({
@@ -106,7 +133,6 @@ const loginLoading = ref(false);
 const saveAccount = ref(false);
 const captchaImage = ref("");
 const captchaUuid = ref("");
-const isLoggedIn = ref(false);
 
 // 表单验证规则
 const formRules: FormRules = {
@@ -114,6 +140,24 @@ const formRules: FormRules = {
     password: [{ required: true, type: "string", message: "请输入密码", trigger: "blur" }],
     code: [{ required: true, type: "string", message: "请输入验证码", trigger: "blur" }],
 };
+
+// 监听外部show属性变化
+watch(
+    () => props.show,
+    (newVal) => {
+        showModal.value = newVal;
+        if (newVal) {
+            // 模态框打开时重新获取验证码和加载账户信息
+            getCaptcha();
+            loadAccountInfo();
+        }
+    }
+);
+
+// 监听内部showModal变化，同步到外部
+watch(showModal, (newVal) => {
+    emit("update:show", newVal);
+});
 
 // 获取验证码
 const getCaptcha = async () => {
@@ -158,10 +202,6 @@ const handleLogin = async () => {
         const result = await login(loginData);
 
         if (result.code === 200 && result.token) {
-            // 登录成功
-            message.success("登录成功");
-            isLoggedIn.value = true;
-
             // 保存token
             OATokenManager.saveToken(result.token);
 
@@ -171,9 +211,11 @@ const handleLogin = async () => {
                 message.success("账户信息已保存");
             }
 
-            // 清空验证码
-            loginForm.code = "";
-            refreshCaptcha();
+            // 触发登录成功事件（父组件会显示登录成功消息）
+            emit("login-success");
+
+            // 关闭模态框
+            handleClose();
         } else {
             // 登录失败
             message.error(result.msg || "登录失败");
@@ -204,116 +246,90 @@ const loadAccountInfo = () => {
     }
 };
 
-// 检查登录状态
-const checkLoginStatus = () => {
-    isLoggedIn.value = OATokenManager.isLoggedIn();
-};
-
-// 退出登录
-const handleLogout = () => {
-    OATokenManager.clearToken();
-    isLoggedIn.value = false;
-    message.success("已退出登录");
+// 处理关闭
+const handleClose = () => {
+    showModal.value = false;
+    // 清空表单
+    loginForm.username = "";
+    loginForm.password = "";
+    loginForm.code = "";
+    saveAccount.value = false;
+    captchaImage.value = "";
+    captchaUuid.value = "";
 };
 
 // 组件挂载时执行
 onMounted(() => {
-    getCaptcha();
-    loadAccountInfo();
-    checkLoginStatus();
+    showModal.value = props.show;
 });
 </script>
 
 <style scoped lang="scss">
-.oa-login {
+// 模态框头部样式
+.modal-header {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
-    min-height: calc(100vh - 140px);
-    padding: 15px;
-    background: #18181c;
+    padding: 0;
 
-    .login-container {
-        width: 100%;
-        max-width: 380px;
-        background: rgba(42, 42, 50, 0.8);
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(64, 64, 70, 0.3);
+    .header-spacer {
+        flex: 1;
+    }
 
-        .login-form {
-            // 调整表单项间距
-            :deep(.n-form-item) {
-                .n-form-item-label {
-                    font-size: 12px;
-                    color: #c2c2c2;
-                    font-weight: 500;
-                    padding-right: 6px;
-                    text-align: right;
-                    min-width: 40px;
-                }
+    .close-btn {
+        color: rgba(255, 255, 255, 0.6);
+        transition: all 0.2s ease;
+
+        &:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+    }
+}
+
+// 登录表单内容样式
+.login-modal-content {
+    .login-form {
+        .captcha-container {
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+
+            .captcha-input {
+                flex: 1;
             }
 
-            // 调整最后一个表单项的间距
-            :deep(.n-form-item:last-child) {
-                margin-bottom: 0;
-            }
-
-            .captcha-container {
+            .captcha-image {
+                width: 80px;
+                height: 34px;
+                border: 1px solid #444;
+                border-radius: 3px;
+                cursor: pointer;
                 display: flex;
-                gap: 8px;
                 align-items: center;
+                justify-content: center;
+                background: #2a2a2a;
+                transition: all 0.2s ease;
+                overflow: hidden;
 
-                .captcha-input {
-                    flex: 1;
+                &:hover {
+                    border-color: #4a9eff;
+                    background: rgba(74, 158, 255, 0.1);
                 }
 
-                .captcha-image {
-                    width: 90px;
-                    height: 36px;
-                    border: 1px solid rgba(64, 64, 70, 0.6);
-                    border-radius: 4px;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: rgba(42, 42, 50, 0.9);
-                    transition: all 0.3s ease;
-                    overflow: hidden;
-
-                    &:hover {
-                        border-color: #7fe7c4;
-                        background: rgba(127, 231, 196, 0.1);
-                        transform: scale(1.02);
-                    }
-
-                    .captcha-img {
-                        width: 100%;
-                        height: 100%;
-                        object-fit: contain;
-                        border-radius: 2px;
-                    }
+                .captcha-img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    border-radius: 2px;
                 }
             }
         }
 
-        .login-status {
-            margin-top: 16px;
-
-            .status-content {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-
-                p {
-                    margin: 0;
-                    color: #7fe7c4;
-                    font-weight: 500;
-                    font-size: 14px;
-                }
-            }
+        .login-button {
+            height: 36px;
+            font-weight: 600;
+            margin-top: 6px;
         }
     }
 }
