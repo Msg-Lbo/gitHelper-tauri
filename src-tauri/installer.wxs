@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" 
+           Name="Git Helper" 
+           Language="2052" 
+           Version="{{version}}" 
+           Manufacturer="Git Helper Team" 
+           UpgradeCode="{{upgrade_code}}">
+    
+    <Package InstallerVersion="450" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Description="Git Helper - 专业的 Git 管理工具"
+             Comments="Git Helper 安装程序" />
+
+    <!-- 中文语言包 -->
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="dialog.bmp" />
+
+    <!-- 升级规则 -->
+    <MajorUpgrade DowngradeErrorMessage="已安装更新版本的 Git Helper。" />
+    
+    <!-- 媒体 -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- 功能定义 -->
+    <Feature Id="ProductFeature" Title="Git Helper" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <!-- UI 定义 -->
+    <UI>
+      <UIRef Id="WixUI_InstallDir" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="2">1</Publish>
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2">1</Publish>
+    </UI>
+
+    <!-- 自定义文本 -->
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    
+    <!-- 属性 -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://githelper.com" />
+    <Property Id="ARPNOMODIFY" Value="yes" Secure="yes" />
+    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+    
+    <!-- 图标 -->
+    <Icon Id="ProductIcon" SourceFile="icons/icon.ico" />
+  </Product>
+
+  <!-- 目录结构 -->
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="{{program_files_dir}}">
+        <Directory Id="INSTALLFOLDER" Name="Git Helper" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Git Helper" />
+      </Directory>
+      <Directory Id="DesktopFolder" Name="Desktop" />
+    </Directory>
+  </Fragment>
+
+  <!-- 组件 -->
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="*">
+        <File Id="MainExe" 
+              Source="{{app_exe_source}}" 
+              Name="{{app_exe_name}}" 
+              KeyPath="yes" />
+        
+        <!-- 开始菜单快捷方式 -->
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="Git Helper"
+                  Description="Git Helper - 专业的 Git 管理工具"
+                  Target="[#MainExe]"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Directory="ApplicationProgramsFolder" />
+        
+        <!-- 桌面快捷方式 -->
+        <Shortcut Id="ApplicationDesktopShortcut"
+                  Name="Git Helper"
+                  Description="Git Helper - 专业的 Git 管理工具"
+                  Target="[#MainExe]"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Directory="DesktopFolder" />
+      </Component>
+      
+      <!-- 开始菜单文件夹移除 -->
+      <Component Id="ApplicationShortcutDesktop" Directory="ApplicationProgramsFolder" Guid="*">
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" 
+                       Key="Software\Git Helper" 
+                       Name="installed" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
