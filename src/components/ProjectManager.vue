@@ -1,7 +1,7 @@
 <template>
     <div class="project-panel">
         <n-button type="primary" size="small" @click="handleSelectDirectory">选择项目文件夹</n-button>
-        <n-data-table :columns="columns" :data="projects" style="margin-top: 16px;" :pagination="false" size="small" />
+        <n-data-table :columns="columns" :data="projects" style="margin-top: 16px; height: 520px;" :pagination="false" size="small" />
     </div>
 </template>
 

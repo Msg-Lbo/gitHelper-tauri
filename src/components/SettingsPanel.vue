@@ -29,7 +29,7 @@
                     type="textarea"
                     placeholder="请输入日报模板"
                     size="small"
-                    :autosize="{ minRows: 6, maxRows: 6 }"
+                    :autosize="{ minRows: 8, maxRows: 8 }"
                     class="template-input"
                 />
             </n-form-item>
@@ -39,7 +39,7 @@
                     type="textarea"
                     placeholder="请输入周报模板"
                     size="small"
-                    :autosize="{ minRows: 6, maxRows: 6 }"
+                    :autosize="{ minRows: 8, maxRows: 8 }"
                     class="template-input"
                 />
             </n-form-item>
