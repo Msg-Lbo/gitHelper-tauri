@@ -103,12 +103,13 @@ onMounted(async () => {
 
 <style scoped lang="scss">
 .window-root {
-  width: 800px;
-  height: 600px;
+  width: 100vw;
+  height: 100vh;
   background: #18181c;
   color: #fff;
   overflow: hidden;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
 
   .title-bar {
     height: 40px;
@@ -146,6 +147,7 @@ onMounted(async () => {
 }
 
 .content {
+  flex: 1;
   padding: 0 10px;
   background: #18181c;
   overflow: auto;

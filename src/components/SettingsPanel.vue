@@ -136,8 +136,6 @@ loadSettings();
 <style scoped lang="scss">
 .settings-panel {
     width: 100%;
-    min-width: 400px;
-    max-width: 900px;
     margin: 0 auto;
 
     ::v-deep(.n-form-item .n-form-item-feedback-wrapper) {

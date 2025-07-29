@@ -117,19 +117,33 @@ async fn window_close(window: tauri::Window) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
 }
 
+// Tauri 命令：健康检查
+#[tauri::command]
+fn health_check() -> Result<String, String> {
+    log::info!("应用程序健康检查");
+    Ok("应用程序运行正常".to_string())
+}
+
 // Tauri 应用程序入口
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            // 在生产环境也启用日志，方便调试
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(if cfg!(debug_assertions) {
+                        log::LevelFilter::Debug
+                    } else {
+                        log::LevelFilter::Info
+                    })
+                    .build(),
+            )?;
+
+            log::info!("Git Helper 应用程序启动成功");
+            log::info!("版本: {}", env!("CARGO_PKG_VERSION"));
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -137,7 +151,8 @@ pub fn run() {
             run_git_log,
             get_app_version,
             window_minimize,
-            window_close
+            window_close,
+            health_check
         ])
         .run(tauri::generate_context!())
         .expect("运行Tauri应用程序时出错");

@@ -288,7 +288,6 @@ watchEffect(() => {
 <style scoped lang="scss">
 .summarization-panel {
     width: 100%;
-    max-width: 900px;
     margin: 0 auto;
     .content {
         margin-top: 16px;

@@ -2,8 +2,10 @@
  * OA系统API接口
  */
 
-// OA系统基础URL - 使用代理路径
-const OA_BASE_URL = '/api/oa'
+// OA系统基础URL - 根据环境选择
+const OA_BASE_URL = import.meta.env.DEV
+  ? '/api/oa'  // 开发环境使用代理
+  : 'https://ai.mufengweilai.com/api/oa'  // 生产环境直接请求
 
 // 登录请求参数接口
 export interface LoginParams {
