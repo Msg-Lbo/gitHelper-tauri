@@ -29,7 +29,7 @@
           </div>
         </div>
         <div class="content-body">
-          <div class="log-container" :class="{ loading: loading }">
+          <div ref="logContainerRef" class="log-container" :class="{ loading: loading }">
             <pre class="log-content">{{ logRef || '点击上方按钮开始生成报告...' }}</pre>
           </div>
         </div>
@@ -94,7 +94,6 @@
 
 <script setup lang="ts">
 import { ref, nextTick, watchEffect } from "vue";
-import type { LogInst } from "naive-ui";
 import { useMessage } from "naive-ui";
 import { chatWithDeepSeek } from "../api/deepseek";
 import { invoke } from "@tauri-apps/api/core";
@@ -103,7 +102,7 @@ const type = ref<"daily" | "overtime" | "weekly">("daily");
 const loading = ref(false);
 const message = useMessage();
 const logRef = ref("");
-const logInstRef = ref<LogInst | null>(null);
+const logContainerRef = ref<HTMLElement | null>(null);
 const showCopyButton = ref(false);
 
 // 获取配置
@@ -287,6 +286,9 @@ const handleSummarizeDeepSeek = async () => {
                             if (content) {
                                 deepseekText += content;
                                 logRef.value = logRef.value.replace(/(--------------------\n)[\s\S]*$/, `$1${deepseekText}`);
+                                // 在内容更新后立即滚动到底部
+                                await nextTick();
+                                scrollToBottom();
                                 await new Promise((r) => setTimeout(r, 10));
                             }
                         } catch {}
@@ -316,10 +318,17 @@ const handleCopySummary = async () => {
     }
 };
 
+// 自动滚动到底部的函数
+const scrollToBottom = () => {
+    if (logContainerRef.value) {
+        logContainerRef.value.scrollTop = logContainerRef.value.scrollHeight;
+    }
+};
+
 watchEffect(() => {
     if (logRef.value) {
         nextTick(() => {
-            logInstRef.value?.scrollTo({ position: "bottom", silent: true });
+            scrollToBottom();
         });
     }
 });

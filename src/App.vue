@@ -75,20 +75,30 @@
             <div class="status-card">
               <div class="status-header">
                 <h3>系统状态</h3>
-                <div class="status-indicator" :class="{ online: balanceInfo?.is_available }"></div>
+                <div class="status-indicator" :class="{
+                  online: !systemInitializing && balanceInfo?.is_available,
+                  initializing: systemInitializing
+                }"></div>
               </div>
               <!-- 状态信息内容 -->
               <div class="status-content">
-                <!-- 账户余额信息 -->
-                <div class="balance-info">
-                  <span class="balance-label">账户余额</span>
-                  <span class="balance-value">￥{{ balanceInfo?.balance_infos[0]?.total_balance || 0 }}</span>
+                <!-- 初始化状态提示 -->
+                <div v-if="systemInitializing" class="initializing-info">
+                  <span class="initializing-text">系统初始化中...</span>
                 </div>
+                <!-- 正常状态信息 -->
+                <template v-else>
+                  <!-- 账户余额信息 -->
+                  <div class="balance-info">
+                    <span class="balance-label">账户余额</span>
+                    <span class="balance-value">￥{{ balanceInfo?.balance_infos[0]?.total_balance || 0 }}</span>
+                  </div>
 
-                <!-- 版本信息 -->
-                <div class="version-info">
-                  <span class="version-text">v{{ appVersion }}</span>
-                </div>
+                  <!-- 版本信息 -->
+                  <div class="version-info">
+                    <span class="version-text">v{{ appVersion }}</span>
+                  </div>
+                </template>
               </div>
             </div>
           </aside>
@@ -145,6 +155,8 @@ const balanceInfo = ref<DeepSeekBalance>()
 const appVersion = ref('')
 // 当前激活的标签页
 const activeTab = ref('report')
+// 系统初始化状态
+const systemInitializing = ref(true)
 
 // 创建消息提示实例
 const { message } = createDiscreteApi(['message'], {
@@ -188,6 +200,15 @@ const handleCheckDeepSeekBalance = async () => {
     const settings = getSettings()
     deepseekToken.value = settings.token || ''
 
+    // 如果没有token，设置为不可用状态
+    if (!deepseekToken.value) {
+      balanceInfo.value = {
+        is_available: false,
+        balance_infos: []
+      }
+      return
+    }
+
     // 调用 API 检查余额
     const res: DeepSeekBalance = await checkDeepSeekBalance(deepseekToken.value)
 
@@ -198,10 +219,15 @@ const handleCheckDeepSeekBalance = async () => {
       } else {
         // 余额不足提示
         message.error('当前账户余额不足，请充值')
+        balanceInfo.value = {
+          is_available: false,
+          balance_infos: res.balance_infos || []
+        }
       }
     }
   } catch (error) {
     // Token 无效或其他错误
+    console.error('DeepSeek余额检查失败:', error)
     message.error('token 无效，请重新配置')
     balanceInfo.value = {
       is_available: false,
@@ -210,16 +236,60 @@ const handleCheckDeepSeekBalance = async () => {
   }
 }
 
+// 系统启动时的完整状态检查
+const performSystemCheck = async () => {
+  try {
+    systemInitializing.value = true
+    console.log('开始执行系统状态检查...')
+
+    // 1. 获取应用版本号
+    appVersion.value = await invoke('get_app_version')
+    console.log('应用版本:', appVersion.value)
+
+    // 2. 执行健康检查
+    const healthStatus = await invoke('health_check')
+    console.log('健康检查结果:', healthStatus)
+
+    // 3. 检查DeepSeek账户余额
+    await handleCheckDeepSeekBalance()
+
+    // 4. 检查本地配置完整性
+    const settings = getSettings()
+    const hasGitUser = !!settings.gitUser
+    const hasToken = !!settings.token
+    const hasTemplates = !!(settings.dailyTemplate && settings.weeklyTemplate)
+
+    console.log('配置检查结果:', {
+      hasGitUser,
+      hasToken,
+      hasTemplates,
+      balanceAvailable: balanceInfo.value?.is_available || false
+    })
+
+    // 5. 显示系统状态总结
+    if (!hasGitUser || !hasToken || !hasTemplates) {
+      message.warning('系统配置不完整，请前往设置页面完善配置')
+    } else if (balanceInfo.value?.is_available) {
+      message.success('系统状态正常，所有功能可用')
+    } else {
+      message.warning('DeepSeek账户状态异常，请检查API Key配置')
+    }
+
+  } catch (error) {
+    console.error('系统状态检查失败:', error)
+    message.error('系统状态检查失败，请检查应用配置')
+  } finally {
+    // 无论成功失败都要结束初始化状态
+    systemInitializing.value = false
+  }
+}
+
 // ==================== 组件生命周期 ====================
 
 // 组件挂载时执行初始化
 onMounted(async () => {
-  // 如果有 token，检查余额
-  if (deepseekToken.value) {
-    handleCheckDeepSeekBalance()
-  }
-  // 获取应用实际版本号
-  appVersion.value = await invoke('get_app_version')
+  // 执行完整的系统状态检查
+  await performSystemCheck()
 })
 </script>
 
@@ -375,6 +445,11 @@ onMounted(async () => {
         &.online {
           background: #10b981;
         }
+
+        &.initializing {
+          background: #f59e0b;
+          animation: pulse 2s infinite;
+        }
       }
     }
 
@@ -403,7 +478,30 @@ onMounted(async () => {
           color: #94a3b8;
         }
       }
+
+      .initializing-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 0;
+
+        .initializing-text {
+          font-size: 12px;
+          color: #f59e0b;
+          font-weight: 500;
+        }
+      }
     }
+  }
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }
 
