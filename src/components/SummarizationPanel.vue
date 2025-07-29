@@ -1,61 +1,101 @@
 <template>
-    <div class="summarization-panel">
-        <section class="header">
-            <n-space justify="start" align="center">
-                <n-button type="info" size="small" @click="openProjectModal('daily')">总结正常日报</n-button>
-                <n-button type="info" size="small" @click="openProjectModal('overtime')">总结加班日报</n-button>
-                <n-button type="info" size="small" @click="openProjectModal('weekly')">总结周报</n-button>
-            </n-space>
-        </section>
-        <section class="content">
-            <n-card size="small" :bordered="false" hoverable content-style="background-color: #23232B">
-                <n-log ref="logInstRef" :log="logRef" :rows="33" :font-size="12" :loading="loading" trim />
-            </n-card>
-        </section>
-        <n-modal v-model:show="showModal" preset="dialog" :title="modalTitle" :mask-closable="false">
-            <div v-if="selectMode === 'single'" style="margin-top: 20px">
-                <n-radio-group v-model:value="selectedProject">
-                    <n-radio v-for="p in projectList" :key="p.path" :value="p.path">{{ p.alias }}</n-radio>
-                </n-radio-group>
-            </div>
-            <div v-else style="margin-top: 20px">
-                <n-checkbox-group v-model:value="selectedProjects">
-                    <n-checkbox v-for="p in projectList" :key="p.path" :value="p.path">{{ p.alias }}</n-checkbox>
-                </n-checkbox-group>
-            </div>
-            <template #action>
-                <n-button type="info" size="small" @click="onProjectSelectConfirm">确定</n-button>
-                <n-button type="info" size="small" @click="showModal = false">取消</n-button>
-            </template>
-        </n-modal>
-        <n-button
-            v-if="showCopyButton"
-            class="floating-copy-btn"
-            type="primary"
-            size="large"
-            @click="handleCopySummary"
-            style="
-                position: fixed;
-                right: 32px;
-                bottom: 32px;
-                z-index: 1000;
-                border-radius: 50%;
-                width: 56px;
-                height: 56px;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-            "
-            circle
-        >
-            <n-icon size="28"><CopyOutline /></n-icon>
-        </n-button>
+  <div class="summarization-panel">
+    <!-- 操作区域 -->
+    <div class="action-section">
+      <div class="action-buttons">
+        <button class="action-btn primary" @click="openProjectModal('daily')">
+          <span class="btn-icon">📊</span>
+          <span class="btn-text">总结正常日报</span>
+        </button>
+        <button class="action-btn primary" @click="openProjectModal('overtime')">
+          <span class="btn-icon">⏰</span>
+          <span class="btn-text">总结加班日报</span>
+        </button>
+        <button class="action-btn primary" @click="openProjectModal('weekly')">
+          <span class="btn-icon">📅</span>
+          <span class="btn-text">总结周报</span>
+        </button>
+      </div>
     </div>
+
+    <!-- 内容展示区域 -->
+    <div class="content-section">
+      <div class="content-card">
+        <div class="content-header">
+          <h3 class="content-title">生成结果</h3>
+          <div class="content-status" :class="{ loading: loading }">
+            <span v-if="loading" class="status-text">生成中...</span>
+            <span v-else class="status-text">就绪</span>
+          </div>
+        </div>
+        <div class="content-body">
+          <div class="log-container" :class="{ loading: loading }">
+            <pre class="log-content">{{ logRef || '点击上方按钮开始生成报告...' }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 项目选择模态框 -->
+    <div v-if="showModal" class="modal-overlay" @click="showModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3 class="modal-title">{{ modalTitle }}</h3>
+          <button class="modal-close" @click="showModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <!-- 单选模式 -->
+          <div v-if="selectMode === 'single'" class="project-selection">
+            <div class="selection-title">请选择项目：</div>
+            <div class="radio-group">
+              <label v-for="p in projectList" :key="p.path" class="radio-item">
+                <input
+                  type="radio"
+                  :value="p.path"
+                  v-model="selectedProject"
+                  class="radio-input"
+                />
+                <span class="radio-label">{{ p.alias }}</span>
+              </label>
+            </div>
+          </div>
+          <!-- 多选模式 -->
+          <div v-else class="project-selection">
+            <div class="selection-title">请选择项目：</div>
+            <div class="checkbox-group">
+              <label v-for="p in projectList" :key="p.path" class="checkbox-item">
+                <input
+                  type="checkbox"
+                  :value="p.path"
+                  v-model="selectedProjects"
+                  class="checkbox-input"
+                />
+                <span class="checkbox-label">{{ p.alias }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="modal-btn primary" @click="onProjectSelectConfirm">确定</button>
+          <button class="modal-btn secondary" @click="showModal = false">取消</button>
+        </div>
+      </div>
+    </div>
+    <!-- 浮动复制按钮 -->
+    <button
+      v-if="showCopyButton"
+      class="floating-copy-btn"
+      @click="handleCopySummary"
+      title="复制结果"
+    >
+      <span class="copy-icon">📋</span>
+    </button>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, nextTick, watchEffect } from "vue";
 import type { LogInst } from "naive-ui";
-import { NButton, NSpace, useMessage, NLog, NCard, NModal, NRadioGroup, NRadio, NCheckboxGroup, NCheckbox, NIcon } from "naive-ui";
-import { CopyOutline } from "@vicons/ionicons5";
+import { useMessage } from "naive-ui";
 import { chatWithDeepSeek } from "../api/deepseek";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -286,15 +326,335 @@ watchEffect(() => {
 </script>
 
 <style scoped lang="scss">
+/* 总结面板容器 - 修复高度问题 */
 .summarization-panel {
-    width: 100%;
-    margin: 0 auto;
-    .content {
-        margin-top: 16px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden; /* 防止内容溢出 */
+}
+
+/* 操作区域 - 确保不被挤压 */
+.action-section {
+  flex-shrink: 0; /* 防止被压缩 */
+  padding-bottom: 16px; /* 底部留出空间 */
+
+  .action-buttons {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+
+    .btn-icon {
+      font-size: 16px;
     }
+
+    &.primary {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+
+      &:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+        box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+        transform: translateY(-1px);
+      }
+
+      &:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+      }
+    }
+  }
 }
+
+/* 内容区域 - 修复高度限制 */
+.content-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.content-card {
+  flex: 1;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  .content-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .content-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #0f172a;
+      margin: 0;
+    }
+
+    .content-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .status-text {
+        font-size: 12px;
+        color: #64748b;
+      }
+
+      &.loading .status-text {
+        color: #10b981;
+      }
+
+      &.loading::before {
+        content: '';
+        width: 12px;
+        height: 12px;
+        border: 2px solid #e2e8f0;
+        border-top: 2px solid #10b981;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+    }
+  }
+
+  .content-body {
+    flex: 1;
+    padding: 24px;
+    overflow: hidden;
+
+    .log-container {
+      height: 100%;
+      max-height: 400px; /* 限制日志容器的最大高度 */
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: auto;
+
+      &.loading {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+      }
+
+      .log-content {
+        padding: 16px;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        color: #374151;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 0;
+        min-height: 100%;
+      }
+    }
+  }
+}
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .modal-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #0f172a;
+        margin: 0;
+      }
+
+      .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #64748b;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+
+        &:hover {
+          background: #f1f5f9;
+          color: #0f172a;
+        }
+      }
+    }
+
+    .modal-body {
+      padding: 24px;
+      max-height: 400px;
+      overflow-y: auto;
+
+      .project-selection {
+        .selection-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: #374151;
+          margin-bottom: 16px;
+        }
+
+        .radio-group,
+        .checkbox-group {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .radio-item,
+        .checkbox-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          padding: 8px 12px;
+          border-radius: 6px;
+          transition: background 0.2s ease;
+
+          &:hover {
+            background: #f8fafc;
+          }
+
+          .radio-input,
+          .checkbox-input {
+            margin: 0;
+          }
+
+          .radio-label,
+          .checkbox-label {
+            font-size: 14px;
+            color: #374151;
+          }
+        }
+      }
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+
+      .modal-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &.primary {
+          background: #10b981;
+          color: white;
+
+          &:hover {
+            background: #059669;
+          }
+        }
+
+        &.secondary {
+          background: #f8fafc;
+          color: #475569;
+          border: 1px solid #e2e8f0;
+
+          &:hover {
+            background: #f1f5f9;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* 浮动复制按钮 - 修复遮挡问题 */
 .floating-copy-btn {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+  z-index: 10;
+
+  .copy-icon {
     font-size: 18px;
-    font-weight: bold;
+  }
+
+  &:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
 }
+
+/* 动画 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+
 </style>

@@ -1,96 +1,103 @@
 /**
- * OA系统API接口
+ * OA系统API接口模块
+ * 提供OA系统相关的API接口和类型定义
  */
+
+// ==================== 配置常量 ====================
 
 // OA系统基础URL - 根据环境选择
 const OA_BASE_URL = import.meta.env.DEV
   ? '/api/oa'  // 开发环境使用代理
   : 'https://ai.mufengweilai.com/api/oa'  // 生产环境直接请求
 
+// ==================== 接口类型定义 ====================
+
 // 登录请求参数接口
 export interface LoginParams {
-  username: string
-  encryptPassword: string
-  code: string
-  uuid: string
+  username: string         // 用户名（手机号）
+  encryptPassword: string  // 加密后的密码
+  code: string            // 验证码
+  uuid: string            // 验证码唯一标识
 }
 
 // 验证码响应接口
 export interface CaptchaResponse {
-  msg: string
-  img: string
-  code: number
-  captchaEnabled: boolean
-  uuid: string
+  msg: string             // 响应消息
+  img: string             // 验证码图片（base64）
+  code: number            // 响应状态码
+  captchaEnabled: boolean // 是否启用验证码
+  uuid: string            // 验证码唯一标识
 }
 
 // 登录响应接口
 export interface LoginResponse {
-  msg: string
-  code: number
-  token?: string
+  msg: string             // 响应消息
+  code: number            // 响应状态码
+  token?: string          // 登录成功后的token
 }
 
-// API响应基础接口
+// API响应基础接口（泛型）
 export interface ApiResponse<T = any> {
-  code: number
-  msg: string
-  data?: T
+  code: number            // 响应状态码
+  msg: string             // 响应消息
+  data?: T                // 响应数据（可选）
 }
 
 // 项目列表请求参数接口
 export interface ProjectListParams {
-  projectName: string
-  pageNum: number
-  pageSize: number
+  projectName: string     // 项目名称搜索关键词
+  pageNum: number         // 页码
+  pageSize: number        // 每页显示数量
 }
 
 // 项目信息接口
 export interface ProjectInfo {
-  id: string
-  contractId: string
-  projectCode: string
-  projectName: string
-  type: number
-  startTime: string
-  endTime: string
-  realityEndTime?: string
-  schedule: number
-  stage: string
-  status: string
-  stageName: string
-  statusName: string
-  userId?: string
+  id: string              // 项目ID
+  contractId: string        // 合同ID
+  projectCode: string       // 项目编码
+  projectName: string       // 项目名称
+  type: number             // 项目类型
+  startTime: string        // 开始时间
+  endTime: string          // 结束时间
+  realityEndTime?: string  // 实际结束时间（可选）
+  schedule: number         // 进度
+  stage: string            // 阶段
+  status: string           // 状态
+  stageName: string        // 阶段名称
+  statusName: string       // 状态名称
+  userId?: string          // 用户ID（可选）
 }
 
-// 分页信息接口
+// 分页信息接口（泛型）
 export interface PageInfo<T> {
-  total: number
-  list: T[]
-  pageNum: number
-  pageSize: number
-  size: number
-  startRow: number
-  endRow: number
-  pages: number
-  prePage: number
-  nextPage: number
-  isFirstPage: boolean
-  isLastPage: boolean
-  hasPreviousPage: boolean
-  hasNextPage: boolean
-  navigatePages: number
-  navigatepageNums: number[]
-  navigateFirstPage: number
-  navigateLastPage: number
+  total: number              // 总记录数
+  list: T[]                  // 数据列表
+  pageNum: number            // 当前页码
+  pageSize: number           // 每页大小
+  size: number               // 当前页记录数
+  startRow: number           // 起始行号
+  endRow: number             // 结束行号
+  pages: number              // 总页数
+  prePage: number            // 上一页页码
+  nextPage: number           // 下一页页码
+  isFirstPage: boolean       // 是否为首页
+  isLastPage: boolean        // 是否为末页
+  hasPreviousPage: boolean   // 是否有上一页
+  hasNextPage: boolean       // 是否有下一页
+  navigatePages: number      // 导航页数
+  navigatepageNums: number[] // 导航页码数组
+  navigateFirstPage: number  // 导航首页
+  navigateLastPage: number   // 导航末页
 }
 
 // 项目列表响应接口
 export interface ProjectListResponse extends ApiResponse<PageInfo<ProjectInfo>> {}
 
+// ==================== HTTP客户端类 ====================
+
 /**
- * HTTP请求拦截器
- * 统一处理请求和响应
+ * OA系统API客户端
+ * 统一处理HTTP请求和响应
  */
 class OAApiClient {
   private baseURL: string
@@ -101,6 +108,9 @@ class OAApiClient {
 
   /**
    * 发送GET请求
+   * @param url 请求URL
+   * @param options 请求选项
+   * @returns Promise<T> 响应数据
    */
   async get<T = any>(url: string, options?: RequestInit): Promise<T> {
     return this.request<T>(url, {
@@ -111,6 +121,10 @@ class OAApiClient {
 
   /**
    * 发送POST请求
+   * @param url 请求URL
+   * @param data 请求数据
+   * @param options 请求选项
+   * @returns Promise<T> 响应数据
    */
   async post<T = any>(url: string, data?: any, options?: RequestInit): Promise<T> {
     return this.request<T>(url, {

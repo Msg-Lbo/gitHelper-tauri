@@ -1,89 +1,207 @@
 <template>
-  <n-config-provider :theme="darkTheme">
+  <!-- Naive UI 配置提供者 -->
+  <n-config-provider :theme="lightTheme">
+    <!-- 消息提示提供者 -->
     <n-message-provider placement="top-right" container-style="top: 50px;">
-      <div class="window-root">
+      <div class="app-container">
+        <!-- ==================== 自定义标题栏 ==================== -->
         <TitleBar />
-        <main class="content flex-1">
-          <HomeTabs @save="handleCheckDeepSeekBalance" />
-        </main>
-        <footer class="footer flex justify-between align-center">
-          <div class="app-version flex align-center gap-5">
-            <div
-              class="status-dot"
-              :style="{ background: balanceInfo?.is_available ? '#4caf50' : '#e9546b' }"
-            ></div>
-            <span class="app-version-text">Git Helper v{{ appVersion }}</span>
-          </div>
-          <div class="balance-info">
-            <span class="balance-info-text">
-              <span class="balance-info-text-value">
-                ￥{{ balanceInfo?.balance_infos[0]?.total_balance || 0 }}
-              </span>
-            </span>
-          </div>
-        </footer>
+
+        <!-- ==================== 主应用布局 ==================== -->
+        <div class="app-layout">
+          <!-- 左侧导航栏 -->
+          <aside class="sidebar">
+            <!-- 侧边栏头部 -->
+            <div class="sidebar-header">
+              <!-- Logo 区域 -->
+              <div class="logo-section">
+                <div class="logo-icon">
+                  <!-- Git 图标 SVG -->
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <h1 class="app-title">Git Helper</h1>
+              </div>
+
+              <!-- 用户信息区域 -->
+              <div class="user-info">
+                <span class="welcome-text">欢迎回来！</span>
+              </div>
+            </div>
+
+            <!-- 侧边栏导航 -->
+            <nav class="sidebar-nav">
+              <!-- 主要功能区域 -->
+              <div class="nav-section">
+                <div class="nav-section-title">主要功能</div>
+                <ul class="nav-list">
+                  <!-- 日/周报总结 -->
+                  <li class="nav-item" :class="{ active: activeTab === 'report' }" @click="setActiveTab('report')">
+                    <div class="nav-icon">📊</div>
+                    <span class="nav-text">日/周报总结</span>
+                  </li>
+
+                  <!-- 项目管理 -->
+                  <li class="nav-item" :class="{ active: activeTab === 'project' }" @click="setActiveTab('project')">
+                    <div class="nav-icon">📁</div>
+                    <span class="nav-text">项目管理</span>
+                  </li>
+
+                  <!-- OA系统 -->
+                  <li class="nav-item" :class="{ active: activeTab === 'oa' }" @click="setActiveTab('oa')">
+                    <div class="nav-icon">🏢</div>
+                    <span class="nav-text">OA系统</span>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- 系统设置区域 -->
+              <div class="nav-section">
+                <div class="nav-section-title">系统设置</div>
+                <ul class="nav-list">
+                  <!-- 设置页面 -->
+                  <li class="nav-item" :class="{ active: activeTab === 'settings' }" @click="setActiveTab('settings')">
+                    <div class="nav-icon">⚙️</div>
+                    <span class="nav-text">基础设置</span>
+                  </li>
+                </ul>
+              </div>
+            </nav>
+
+            <!-- 状态信息卡片 -->
+            <div class="status-card">
+              <div class="status-header">
+                <h3>系统状态</h3>
+                <div class="status-indicator" :class="{ online: balanceInfo?.is_available }"></div>
+              </div>
+              <!-- 状态信息内容 -->
+              <div class="status-content">
+                <!-- 账户余额信息 -->
+                <div class="balance-info">
+                  <span class="balance-label">账户余额</span>
+                  <span class="balance-value">￥{{ balanceInfo?.balance_infos[0]?.total_balance || 0 }}</span>
+                </div>
+
+                <!-- 版本信息 -->
+                <div class="version-info">
+                  <span class="version-text">v{{ appVersion }}</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <!-- ==================== 主内容区域 ==================== -->
+          <main class="main-content">
+            <div class="content-wrapper">
+              <!-- 主要内容标签页组件 -->
+              <HomeTabs :active-tab="activeTab" @save="handleCheckDeepSeekBalance" />
+            </div>
+          </main>
+        </div>
       </div>
     </n-message-provider>
   </n-config-provider>
 </template>
 
 <script setup lang="ts">
-import { darkTheme, NConfigProvider, NMessageProvider, createDiscreteApi } from 'naive-ui'
+// ==================== 导入依赖 ====================
+
+// Naive UI 相关导入
+import { lightTheme, NConfigProvider, NMessageProvider, createDiscreteApi } from 'naive-ui'
+// 组件导入
 import TitleBar from './components/TitleBar.vue'
 import HomeTabs from './components/HomeTabs.vue'
+// API 导入
 import { checkDeepSeekBalance } from './api/deepseek'
+// Vue 相关导入
 import { onMounted, ref } from 'vue'
+// Tauri API 导入
 import { invoke } from '@tauri-apps/api/core'
 
+// ==================== 类型定义 ====================
+
+// 余额信息接口
 interface BalanceInfo {
-  currency: string
-  total_balance: string
-  granted_balance: string
-  topped_up_balance: string
+  currency: string          // 货币类型
+  total_balance: string     // 总余额
+  granted_balance: string   // 赠送余额
+  topped_up_balance: string // 充值余额
 }
 
+// DeepSeek 余额响应接口
 interface DeepSeekBalance {
-  is_available: boolean
-  balance_infos: BalanceInfo[]
+  is_available: boolean     // 是否可用
+  balance_infos: BalanceInfo[] // 余额信息列表
 }
 
+// ==================== 状态管理 ====================
+
+// 余额信息
 const balanceInfo = ref<DeepSeekBalance>()
-const appVersion = ref('') // 应用版本号，可以从package.json中获取
+// 应用版本号
+const appVersion = ref('')
+// 当前激活的标签页
+const activeTab = ref('report')
+
+// 创建消息提示实例
 const { message } = createDiscreteApi(['message'], {
   configProviderProps: {
-    theme: darkTheme
+    theme: lightTheme
   },
   messageProviderProps: {
     placement: 'top-right',
     containerStyle: 'top: 50px'
   }
 })
+
+// DeepSeek Token
 const deepseekToken = ref<string>('')
 
-// 获取配置
+// ==================== 业务函数 ====================
+
+// 设置激活的标签页
+const setActiveTab = (tab: string) => {
+  activeTab.value = tab
+}
+
+// 获取本地存储的配置信息
 const getSettings = () => {
   const raw = localStorage.getItem('githelper-settings')
   if (raw) {
     try {
       return JSON.parse(raw)
-    } catch {}
+    } catch (error) {
+      // 解析失败时返回空对象
+      console.warn('解析设置失败:', error)
+    }
   }
   return {}
 }
 
+// 检查 DeepSeek 账户余额
 const handleCheckDeepSeekBalance = async () => {
   try {
+    // 获取配置中的 token
     const settings = getSettings()
     deepseekToken.value = settings.token || ''
+
+    // 调用 API 检查余额
     const res: DeepSeekBalance = await checkDeepSeekBalance(deepseekToken.value)
+
     if (res) {
       if (res.is_available) {
+        // 余额充足，更新余额信息
         balanceInfo.value = res
       } else {
+        // 余额不足提示
         message.error('当前账户余额不足，请充值')
       }
     }
   } catch (error) {
+    // Token 无效或其他错误
     message.error('token 无效，请重新配置')
     balanceInfo.value = {
       is_available: false,
@@ -92,7 +210,11 @@ const handleCheckDeepSeekBalance = async () => {
   }
 }
 
+// ==================== 组件生命周期 ====================
+
+// 组件挂载时执行初始化
 onMounted(async () => {
+  // 如果有 token，检查余额
   if (deepseekToken.value) {
     handleCheckDeepSeekBalance()
   }
@@ -102,106 +224,225 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.window-root {
+/* 现代化应用容器 */
+.app-container {
   width: 100vw;
   height: 100vh;
-  background: #18181c;
-  color: #fff;
+  background: #f8fafc;
+  color: #1e293b;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-
-  .title-bar {
-    height: 40px;
-    background: #23232b;
-    padding: 0 16px;
-    -webkit-app-region: drag;
-    user-select: none;
-  }
-
-  .left {
-    .logo {
-      width: 32px;
-      height: 32px;
-    }
-
-    .title {
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: 1px;
-    }
-  }
-
-  .right {
-    .bar-btn {
-      width: 32px;
-      height: 32px;
-      color: #fff;
-    }
-
-    .bar-btn.close:hover {
-      background: #e9546b;
-      color: #fff;
-    }
-  }
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
-.content {
+/* 主应用布局 */
+.app-layout {
   flex: 1;
-  padding: 0 10px;
-  background: #18181c;
-  overflow: auto;
-}
-
-.footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 5px 10px;
-  background: #23232b;
-  .app-version {
-    font-size: 13px;
-    color: #aaa;
-    z-index: 10;
-    cursor: pointer;
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #aaa;
-      box-shadow: 0 0 2px #0002;
-      transition: background 0.5s ease-in-out;
-    }
-  }
-
-  .balance-info {
-    .balance-info-text {
-      font-size: 13px;
-      color: #aaa;
-    }
-  }
-}
-
-/* 工具类 */
-.flex {
   display: flex;
+  height: calc(100vh - 40px); /* 减去标题栏高度 */
+  overflow: hidden;
 }
 
-.flex-1 {
+/* 左侧导航栏 */
+.sidebar {
+  width: 280px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+
+  .sidebar-header {
+    padding: 24px 20px;
+    border-bottom: 1px solid #f1f5f9;
+
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+
+      .logo-icon {
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+      }
+
+      .app-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+      }
+    }
+
+    .user-info {
+      .welcome-text {
+        font-size: 14px;
+        color: #64748b;
+      }
+    }
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 20px 0;
+    overflow-y: auto;
+
+    .nav-section {
+      margin-bottom: 32px;
+
+      .nav-section-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 0 20px 12px;
+      }
+
+      .nav-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 20px;
+          margin: 0 12px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 14px;
+          font-weight: 500;
+          color: #475569;
+
+          .nav-icon {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+          }
+
+          &:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+          }
+
+          &.active {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+          }
+        }
+      }
+    }
+  }
+
+  .status-card {
+    margin: 0 24px 24px;
+    padding: 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+
+    .status-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+
+      h3 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #0f172a;
+        margin: 0;
+      }
+
+      .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ef4444;
+
+        &.online {
+          background: #10b981;
+        }
+      }
+    }
+
+    .status-content {
+      .balance-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+
+        .balance-label {
+          font-size: 12px;
+          color: #64748b;
+        }
+
+        .balance-value {
+          font-size: 14px;
+          font-weight: 600;
+          color: #10b981;
+        }
+      }
+
+      .version-info {
+        .version-text {
+          font-size: 12px;
+          color: #94a3b8;
+        }
+      }
+    }
+  }
+}
+
+/* 主内容区域 */
+.main-content {
   flex: 1;
+  background: #f8fafc;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* 重要：允许 flex 子元素正确收缩 */
+
+  .content-wrapper {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* 重要：允许内容正确滚动 */
+
+    /* 自定义滚动条 */
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+
+      &:hover {
+        background: #94a3b8;
+      }
+    }
+  }
 }
 
-.justify-between {
-  justify-content: space-between;
-}
 
-.align-center {
-  align-items: center;
-}
-
-.gap-5 {
-  gap: 5px;
-}
 </style>

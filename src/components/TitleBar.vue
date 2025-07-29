@@ -41,10 +41,12 @@ const handleClose = async () => {
 <style scoped lang="scss">
 .title-bar {
   height: 40px;
-  background: #23232b;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
   padding: 0 16px;
   -webkit-app-region: drag;
   user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
   .left {
     .logo {
@@ -55,8 +57,8 @@ const handleClose = async () => {
     .title {
       font-size: 14px;
       font-weight: 600;
-      letter-spacing: 1px;
-      color: #fff;
+      letter-spacing: 0.5px;
+      color: #0f172a;
     }
   }
 
@@ -68,20 +70,22 @@ const handleClose = async () => {
       height: 32px;
       border: none;
       background: transparent;
-      color: #fff;
+      color: #64748b;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background-color 0.2s;
+      border-radius: 6px;
+      transition: all 0.2s ease;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: #f1f5f9;
+        color: #0f172a;
       }
 
       &.close:hover {
-        background: #e9546b;
-        color: #fff;
+        background: #ef4444;
+        color: #ffffff;
       }
     }
   }
