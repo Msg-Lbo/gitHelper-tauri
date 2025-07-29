@@ -93,6 +93,43 @@ export interface PageInfo<T> {
 // 项目列表响应接口
 export interface ProjectListResponse extends ApiResponse<PageInfo<ProjectInfo>> {}
 
+// 报告列表请求参数接口
+export interface ReportListParams {
+  keywords: string           // 关键词搜索
+  overtimeStatus: string     // 加班状态
+  createTime: {              // 创建时间范围
+    start: string            // 开始时间
+    end: string              // 结束时间
+  }
+  pageNum: number            // 页码
+  pageSize: number           // 每页显示数量
+  projectId: string          // 项目ID
+}
+
+// 报告信息接口
+export interface ReportInfo {
+  id: string                 // 报告ID
+  work: number               // 工作时长
+  speed: string              // 进度
+  projectName: string        // 项目名称
+  stage: string              // 阶段ID
+  status: string             // 状态ID
+  remarks: string            // 备注内容
+  workType: number           // 工作类型
+  overtimeType: number       // 加班类型
+  submitCode: number         // 提交状态码
+  projectStartTime: string   // 项目开始时间
+  projectEndTime: string     // 项目结束时间
+  createTime: string         // 创建时间
+  speedPlan: number          // 进度计划
+  overtimePlan: number       // 加班计划
+  stageName: string          // 阶段名称
+  statusName: string         // 状态名称
+}
+
+// 报告列表响应接口
+export interface ReportListResponse extends ApiResponse<PageInfo<ReportInfo>> {}
+
 // ==================== HTTP客户端类 ====================
 
 /**
@@ -352,4 +389,21 @@ export class OAAccountManager {
  */
 export const getMyProjectList = async (params: ProjectListParams): Promise<ProjectListResponse> => {
   return apiClient.post<ProjectListResponse>('/backend/project/myProjectList', params)
+}
+
+/**
+ * 获取我的报告列表
+ * @param params 查询参数
+ * @returns 报告列表响应
+ */
+export const getMyReportingList = async (params: ReportListParams): Promise<ReportListResponse> => {
+  return apiClient.post<ReportListResponse>('/system/report/myReportingList', params)
+}
+
+/**
+ * 获取今日提交工时
+ * @returns 今日工时响应
+ */
+export const getTodayWorkingHours = async (): Promise<ApiResponse<string>> => {
+  return apiClient.get<ApiResponse<string>>('/system/report/reportedWorkingHoursToday')
 }

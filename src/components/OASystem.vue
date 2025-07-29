@@ -135,7 +135,6 @@
                 <div class="pagination-container">
                     <n-pagination
                         v-model:page="currentPage"
-                        :page-count="totalPages"
                         :page-size="pageSize"
                         :item-count="totalItems"
                         :prefix="paginationPrefix"
@@ -146,16 +145,46 @@
                 </div>
             </div>
         </div>
+
+        <!-- 报告列表模态框 -->
+        <n-modal
+            v-model:show="showReportModal"
+            :key="`report-modal-${selectedProject?.id || 'empty'}`"
+            preset="card"
+            :title="selectedProject ? `${selectedProject.projectName} - 报告列表` : '报告列表'"
+            size="huge"
+            :bordered="false"
+            :segmented="true"
+            :closable="true"
+            :close-on-esc="true"
+            :mask-closable="true"
+            :auto-focus="false"
+            :trap-focus="false"
+            :block-scroll="true"
+            :z-index="1000"
+            class="report-modal"
+            style="width: 90vw; max-width: 1200px;"
+            @after-leave="handleModalAfterLeave"
+        >
+            <template v-if="selectedProject">
+                <ReportList
+                    :key="`report-list-${selectedProject.id}`"
+                    :project-id="selectedProject.id"
+                />
+            </template>
+        </n-modal>
     </div>
 </template>
 
 <script setup lang="ts">
 // Vue 相关导入
-import { ref, onMounted, reactive, h, computed } from "vue";
+import { ref, onMounted, reactive, h, computed, watch } from "vue";
 // Naive UI 组件导入
-import { NButton, NIcon, NInput, NDataTable, NForm, NFormItem, NSpin, NPagination, useMessage } from "naive-ui";
+import { NButton, NIcon, NInput, NDataTable, NForm, NFormItem, NSpin, NPagination, NModal, useMessage } from "naive-ui";
 // 图标导入
 import { PersonOutline, LockClosedOutline, SearchOutline, EyeOutline } from "@vicons/ionicons5";
+// 组件导入
+import ReportList from "./ReportList.vue";
 // OA 系统 API 导入
 import {
     OATokenManager,
@@ -178,6 +207,10 @@ const isLoggedIn = ref(false);        // 登录状态
 const loading = ref(false);           // 数据加载状态
 const loginLoading = ref(false);      // 登录按钮加载状态
 const projectList = ref<ProjectInfo[]>([]); // 项目列表数据
+
+// 报告列表相关状态
+const showReportModal = ref(false);   // 报告列表模态框显示状态
+const selectedProject = ref<ProjectInfo | null>(null); // 当前选中的项目
 
 // 表单引用
 const formRef = ref();
@@ -546,12 +579,67 @@ const handleSearch = () => {
     loadProjectList();           // 重新加载数据
 };
 
-// 查看项目详情
+// 查看项目报告列表
 const handleViewProject = (project: ProjectInfo) => {
-    message.info(`查看项目: ${project.projectName}`);
-    // TODO: 实现项目详情查看功能
-    console.log('查看项目详情:', project);
+    console.log('查看项目报告列表:', project);
+
+    // 如果模态框已经打开，先关闭
+    if (showReportModal.value) {
+        showReportModal.value = false;
+        // 等待模态框完全关闭后再打开新的
+        setTimeout(() => {
+            forceCleanupModal();
+            selectedProject.value = project;
+            showReportModal.value = true;
+        }, 200);
+    } else {
+        // 确保之前的模态框完全清理
+        forceCleanupModal();
+        selectedProject.value = project;
+        showReportModal.value = true;
+    }
 };
+
+// 强制清理模态框相关状态
+const forceCleanupModal = () => {
+    // 恢复body样式
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
+    document.body.style.position = '';
+
+    // 移除可能残留的模态框元素
+    const modalElements = document.querySelectorAll('.n-modal-mask, .n-modal-container, .n-modal-body-wrapper');
+    modalElements.forEach(el => {
+        if (el.parentNode) {
+            el.parentNode.removeChild(el);
+        }
+    });
+
+    // 移除可能的滚动锁定类
+    document.body.classList.remove('n-modal-open');
+    document.documentElement.classList.remove('n-modal-open');
+};
+
+// 模态框完全关闭后的处理
+const handleModalAfterLeave = () => {
+    selectedProject.value = null;
+    forceCleanupModal();
+    console.log('模态框已完全关闭，页面应该可以正常交互');
+};
+
+// 监听模态框状态变化
+watch(showReportModal, (newValue, oldValue) => {
+    console.log('模态框状态变化:', { from: oldValue, to: newValue });
+
+    if (!newValue && oldValue) {
+        // 确保在关闭时立即恢复页面交互
+        setTimeout(() => {
+            document.body.style.overflow = '';
+            document.body.style.pointerEvents = '';
+            console.log('页面交互已恢复');
+        }, 50);
+    }
+}, { flush: 'post' });
 
 // ==================== 调试工具函数 ====================
 
@@ -762,7 +850,7 @@ const checkLoginStatus = () => {
     // 从 Token 管理器检查登录状态
     isLoggedIn.value = OATokenManager.isLoggedIn();
 
-    // 如果已登录，自动加载项目列表
+    // 如果已登录，自动加载项目列表和今日工时
     if (isLoggedIn.value) {
         loadProjectList();
     }
@@ -968,6 +1056,73 @@ onMounted(async () => {
 
 // 项目列表容器样式
 .project-list-container {
+    // 页面头部样式
+    .oa-page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        background: linear-gradient(135deg, #ffffff, #f8fafc);
+        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 0;
+
+        .header-info {
+            .page-title {
+                font-size: 24px;
+                font-weight: 700;
+                color: #0f172a;
+                margin: 0 0 4px 0;
+                line-height: 1.2;
+            }
+
+            .page-description {
+                font-size: 14px;
+                color: #64748b;
+                margin: 0;
+                line-height: 1.4;
+            }
+        }
+
+        .working-hours-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border: 2px solid #0ea5e9;
+            border-radius: 12px;
+            min-width: 100px;
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+
+            .working-hours-label {
+                font-size: 12px;
+                color: #0369a1;
+                font-weight: 600;
+                margin-bottom: 4px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .working-hours-value {
+                font-size: 20px;
+                font-weight: 700;
+                color: #0c4a6e;
+
+                &.loading {
+                    .loading-text {
+                        color: #64748b;
+                        font-size: 14px;
+                        font-weight: 500;
+                    }
+                }
+
+                .hours-text {
+                    color: #0c4a6e;
+                }
+            }
+        }
+    }
+
     .header-actions {
         display: flex;
         justify-content: space-between;
@@ -975,7 +1130,7 @@ onMounted(async () => {
         padding: 16px 20px;
         background: linear-gradient(135deg, #f8fafc, #f1f5f9);
         border: 1px solid #e2e8f0;
-        border-radius: 12px 12px 0 0;
+        border-radius: 0;
         // box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         flex-shrink: 0; // 防止被压缩
 
@@ -1238,6 +1393,56 @@ onMounted(async () => {
                 align-items: center;
                 gap: 8px;
             }
+        }
+    }
+}
+
+/* ==================== 报告列表模态框样式 ==================== */
+.report-modal {
+    :deep(.n-modal-mask) {
+        z-index: 1000 !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+    }
+
+    :deep(.n-modal-container) {
+        z-index: 1001 !important;
+    }
+
+    :deep(.n-modal) {
+        max-width: 90vw !important;
+        width: 1200px !important;
+        margin: 20px auto !important;
+        z-index: 1002 !important;
+    }
+
+    :deep(.n-card) {
+        height: 85vh !important;
+        max-height: 85vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        position: relative !important;
+        z-index: 1003 !important;
+
+        .n-card__header {
+            flex-shrink: 0 !important;
+            padding: 20px 24px 16px !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            background: #fafbfc !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 10 !important;
+        }
+
+        .n-card__content {
+            flex: 1 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        .n-card__action {
+            display: none !important;
         }
     }
 }

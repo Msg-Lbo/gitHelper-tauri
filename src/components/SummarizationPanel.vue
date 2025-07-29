@@ -139,7 +139,7 @@ const weeklyCommand = `git log --since="${getThisMonday()}" --author="${gitUser}
 // 获取当天到18:30的提交记录
 const dailyCommand = `git log --since="00:00" --until="18:30" --author="${gitUser}" --pretty=format:"%an %ad %s" --date=format:"%Y-%m-%d %A"`;
 // 获取当天18:30到21点的提交记录
-const overtimeCommand = `git log --since="18:30" --until="21:00" --author="${gitUser}" --pretty=format:"%an %ad %s" --date=format:"%Y-%m-%d %A"`;
+const overtimeCommand = `git log --since="18:30" --author="${gitUser}" --pretty=format:"%an %ad %s" --date=format:"%Y-%m-%d %A"`;
 
 // 项目选择相关，单选/多选
 interface Project {
