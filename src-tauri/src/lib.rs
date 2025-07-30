@@ -1,4 +1,5 @@
 use std::process::Command;
+use tauri::Manager;
 
 // Tauri 命令：选择目录
 #[tauri::command]
@@ -124,11 +125,62 @@ fn health_check() -> Result<String, String> {
     Ok("应用程序运行正常".to_string())
 }
 
+// Tauri 命令：显示启动画面
+#[tauri::command]
+async fn show_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
+    log::info!("显示启动画面");
+
+    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
+        splashscreen.show().map_err(|e| {
+            log::error!("显示启动画面失败: {}", e);
+            e.to_string()
+        })?;
+        log::info!("启动画面已显示");
+    }
+
+    Ok(())
+}
+
+// Tauri 命令：关闭启动画面并显示主窗口
+#[tauri::command]
+async fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
+    log::info!("准备关闭启动画面并显示主窗口");
+
+    // 获取启动画面窗口
+    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
+        // 关闭启动画面
+        splashscreen.close().map_err(|e| {
+            log::error!("关闭启动画面失败: {}", e);
+            e.to_string()
+        })?;
+        log::info!("启动画面已关闭");
+    }
+
+    // 获取主窗口并显示
+    if let Some(main_window) = app.get_webview_window("main") {
+        main_window.show().map_err(|e| {
+            log::error!("显示主窗口失败: {}", e);
+            e.to_string()
+        })?;
+
+        // 确保主窗口获得焦点
+        main_window.set_focus().map_err(|e| {
+            log::warn!("设置主窗口焦点失败: {}", e);
+            e.to_string()
+        })?;
+
+        log::info!("主窗口已显示并获得焦点");
+    }
+
+    Ok(())
+}
+
 // Tauri 应用程序入口
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
         .setup(|app| {
             // 在生产环境也启用日志，方便调试
             app.handle().plugin(
@@ -141,8 +193,26 @@ pub fn run() {
                     .build(),
             )?;
 
-            log::info!("Git Helper 应用程序启动成功");
+            log::info!("工作助手应用程序启动成功");
             log::info!("版本: {}", env!("CARGO_PKG_VERSION"));
+
+            // 记录窗口初始化信息
+            if let Some(_splashscreen) = app.get_webview_window("splashscreen") {
+                log::info!("启动画面窗口已创建（隐藏状态）");
+            }
+
+            if let Some(_main_window) = app.get_webview_window("main") {
+                log::info!("主窗口已创建（隐藏状态）");
+            }
+
+            // 延迟显示启动画面，确保内容已准备好
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                if let Err(e) = tauri::async_runtime::block_on(show_splashscreen(app_handle)) {
+                    log::error!("显示启动画面失败: {}", e);
+                }
+            });
 
             Ok(())
         })
@@ -152,7 +222,9 @@ pub fn run() {
             get_app_version,
             window_minimize,
             window_close,
-            health_check
+            health_check,
+            show_splashscreen,
+            close_splashscreen
         ])
         .run(tauri::generate_context!())
         .expect("运行Tauri应用程序时出错");

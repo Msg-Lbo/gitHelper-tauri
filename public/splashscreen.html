@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git Helper - 启动中</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            color: white;
+            position: relative;
+            /* 立即显示背景，避免白屏 */
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* 背景动画效果 */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            animation: backgroundMove 20s linear infinite;
+        }
+
+        @keyframes backgroundMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(10px, 10px); }
+        }
+
+        .splash-container {
+            text-align: center;
+            z-index: 1;
+            position: relative;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: logoFloat 3s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: logoShine 2s ease-in-out infinite;
+        }
+
+        @keyframes logoShine {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            50% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+            100% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .app-name {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .app-description {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 30px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .loading-container {
+            width: 200px;
+            margin: 0 auto;
+        }
+
+        .loading-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #fff, rgba(255, 255, 255, 0.8));
+            border-radius: 2px;
+            width: 0%;
+            animation: loadingProgress 2s ease-in-out forwards;
+        }
+
+        @keyframes loadingProgress {
+            0% { width: 0%; }
+            50% { width: 60%; }
+            100% { width: 100%; }
+        }
+
+        .loading-text {
+            font-size: 12px;
+            opacity: 0.7;
+            animation: loadingTextFade 1.5s ease-in-out infinite;
+        }
+
+        @keyframes loadingTextFade {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        .version {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            opacity: 0.6;
+        }
+
+        /* 粒子效果 */
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            animation: particleFloat 6s linear infinite;
+        }
+
+        @keyframes particleFloat {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-10px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 粒子背景效果 -->
+    <div class="particles" id="particles"></div>
+    
+    <div class="splash-container">
+        <div class="logo">
+            📊
+        </div>
+        <div class="app-name">工作助手</div>
+        <div class="app-description">智能日报周报生成与OA系统集成工具</div>
+        
+        <div class="loading-container">
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+            <div class="loading-text" id="loadingText">正在启动应用...</div>
+        </div>
+    </div>
+    
+    <div class="version">v1.0.0</div>
+
+    <script>
+        // 创建粒子效果
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 15;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = (Math.random() * 3 + 3) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // 更新加载文本
+        function updateLoadingText() {
+            const loadingText = document.getElementById('loadingText');
+            const messages = [
+                '正在启动应用...',
+                '加载报告模块...',
+                '连接OA系统...',
+                '初始化界面...',
+                '准备就绪...'
+            ];
+            
+            let index = 0;
+            const interval = setInterval(() => {
+                if (index < messages.length) {
+                    loadingText.textContent = messages[index];
+                    index++;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 500);
+        }
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', () => {
+            createParticles();
+            updateLoadingText();
+
+            // 确保所有资源都已加载
+            if (document.readyState === 'complete') {
+                // 页面完全加载完成，可以显示窗口
+                console.log('启动画面内容已完全加载');
+            }
+        });
+
+        // 监听页面完全加载完成
+        window.addEventListener('load', () => {
+            console.log('启动画面所有资源已加载完成');
+        });
+    </script>
+</body>
+</html>
