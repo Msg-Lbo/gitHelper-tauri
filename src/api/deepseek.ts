@@ -1,33 +1,25 @@
-// 使用 fetch 支持流式传输
+import { deepSeekHttpClient } from '@/utils/tauri-http-client';
+
+// 使用 Tauri HTTP 客户端，解决生产环境跨域问题
 export const chatWithDeepSeek = async (
   messages: any[],
   token: string,
   model = 'deepseek-chat',
   stream = false
 ) => {
-  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      stream
-    })
+  const response = await deepSeekHttpClient.post('/v1/chat/completions', {
+    model,
+    messages,
+    stream
+  }, {
+    'Authorization': `Bearer ${token}`
   })
   return response
 }
 
 export const checkDeepSeekBalance = async (token: string) => {
-  const response = await fetch('https://api.deepseek.com/user/balance', {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
+  const response = await deepSeekHttpClient.get('/user/balance', {
+    'Authorization': `Bearer ${token}`
   })
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
-  }
-  return response.json()
+  return response
 }

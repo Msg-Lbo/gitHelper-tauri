@@ -1,14 +1,16 @@
 /**
  * OA系统API接口模块
- * 提供OA系统相关的API接口和类型定义
+ *
+ * 提供OA系统相关的API接口和类型定义。
+ * 使用Tauri HTTP客户端解决生产环境跨域问题，
+ * 确保开发和生产环境的一致性。
  */
+
+import { oaHttpClient } from '@/utils/tauri-http-client';
 
 // ==================== 配置常量 ====================
 
-// OA系统基础URL - 根据环境选择
-const OA_BASE_URL = import.meta.env.DEV
-  ? '/api/oa'  // 开发环境使用代理
-  : 'https://ai.mufengweilai.com/api/oa'  // 生产环境直接请求
+// 注意：现在使用 oaHttpClient 统一处理所有HTTP请求
 
 // ==================== 接口类型定义 ====================
 
@@ -137,10 +139,8 @@ export interface ReportListResponse extends ApiResponse<PageInfo<ReportInfo>> {}
  * 统一处理HTTP请求和响应
  */
 class OAApiClient {
-  private baseURL: string
-
-  constructor(baseURL: string) {
-    this.baseURL = baseURL
+  constructor() {
+    // 不再需要baseURL，直接使用oaHttpClient
   }
 
   /**
@@ -177,10 +177,9 @@ class OAApiClient {
 
   /**
    * 统一请求方法
+   * 使用Tauri HTTP客户端解决跨域问题
    */
   private async request<T>(url: string, options: RequestInit): Promise<T> {
-    const fullUrl = url.startsWith('http') ? url : `${this.baseURL}${url}`
-
     // 获取token并添加到请求头
     const token = OATokenManager.getToken()
     const headers: Record<string, string> = {
@@ -194,30 +193,35 @@ class OAApiClient {
     }
 
     try {
-      console.log(`[OA API] 请求: ${options.method} ${fullUrl}`, token ? '(带token)' : '(无token)')
+      console.log(`[OA API] 请求: ${options.method} ${url}`, token ? '(带token)' : '(无token)')
 
-      const response = await fetch(fullUrl, {
-        ...options,
-        headers
-      })
+      // 使用Tauri HTTP客户端
+      const method = (options.method || 'GET') as 'GET' | 'POST' | 'PUT' | 'DELETE'
+      const body = options.body as string | undefined
 
-      // 检查HTTP状态码
-      if (!response.ok) {
-        // 处理401未授权错误
-        if (response.status === 401) {
-          console.warn('[OA API] Token已过期或无效，清除本地token')
-          OATokenManager.clearToken()
-          throw new Error('登录已过期，请重新登录')
-        }
-        throw new Error(`HTTP错误: ${response.status} ${response.statusText}`)
+      let result: T
+
+      switch (method) {
+        case 'GET':
+          result = await oaHttpClient.get<T>(url, headers)
+          break
+        case 'POST':
+          result = await oaHttpClient.post<T>(url, body ? JSON.parse(body) : undefined, headers)
+          break
+        case 'PUT':
+          result = await oaHttpClient.put<T>(url, body ? JSON.parse(body) : undefined, headers)
+          break
+        case 'DELETE':
+          result = await oaHttpClient.delete<T>(url, headers)
+          break
+        default:
+          throw new Error(`不支持的HTTP方法: ${method}`)
       }
-
-      const result = await response.json()
 
       console.log(`[OA API] 响应:`, result)
 
       // 检查响应体中的code字段，某些接口可能返回401在响应体中
-      if (result.code === 401) {
+      if (result && typeof result === 'object' && 'code' in result && (result as any).code === 401) {
         console.warn('[OA API] 响应中检测到401错误，清除本地token')
         OATokenManager.clearToken()
         throw new Error('登录已过期，请重新登录')
@@ -233,7 +237,7 @@ class OAApiClient {
 }
 
 // 创建API客户端实例
-const apiClient = new OAApiClient(OA_BASE_URL)
+const apiClient = new OAApiClient()
 
 /**
  * 获取验证码

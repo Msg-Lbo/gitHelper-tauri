@@ -25,7 +25,13 @@
                                             stroke-linecap="round"
                                             stroke-linejoin="round"
                                         />
-                                        <path d="M8 12L10 14L16 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                        <path
+                                            d="M8 12L10 14L16 8"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        />
                                     </svg>
                                 </div>
                                 <h1 class="app-title">工作助手</h1>
@@ -330,15 +336,44 @@ const performSystemCheck = async () => {
 
 // ==================== 组件生命周期 ====================
 
-// 组件挂载时执行初始化
+// 组件挂载时执行初始化 - 应用启动的核心逻辑
 onMounted(async () => {
-    // 执行完整的系统状态检查
-    await performSystemCheck();
+    try {
+        console.log("主应用开始初始化...");
+
+        // 确保启动画面至少显示2秒，给用户良好的启动体验
+        const startTime = Date.now();
+        const minSplashTime = 2000; // 最少显示2秒，避免闪烁
+
+        // 执行完整的系统状态检查（包括API连接、用户状态等）
+        await performSystemCheck();
+
+        // 计算已经过去的时间，确保启动画面显示足够时间
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, minSplashTime - elapsedTime);
+
+        if (remainingTime > 0) {
+            console.log(`等待启动画面显示完整时间，剩余: ${remainingTime}ms`);
+            await new Promise((resolve) => setTimeout(resolve, remainingTime));
+        }
+
+        // 系统初始化完成后，关闭启动画面并显示主窗口
+        await invoke("close_splashscreen");
+        console.log("启动画面已关闭，主窗口已显示");
+    } catch (error) {
+        console.error("系统初始化或启动画面处理失败:", error);
+        // 即使出错也要尝试关闭启动画面，确保用户能看到主界面
+        try {
+            await invoke("close_splashscreen");
+        } catch (closeError) {
+            console.error("关闭启动画面失败:", closeError);
+        }
+    }
 });
 </script>
 
 <style scoped lang="scss">
-/* 现代化应用容器 */
+/* 现代化应用容器 - 圆角内容区域 */
 .app-container {
     width: 100vw;
     height: 100vh;

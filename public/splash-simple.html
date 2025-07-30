@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作助手 - 启动中</title>
+    <style>
+        /* 启动画面基础样式 */
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* 应用图标 */
+        .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+            animation: logoFloat 2s ease-in-out infinite;
+        }
+
+        /* 应用标题 */
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        /* 应用描述 */
+        .subtitle {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 30px;
+        }
+
+        /* 加载状态文字 */
+        .loading {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        /* 进度条容器 */
+        .progress {
+            width: 200px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        /* 进度条动画 */
+        .progress-bar {
+            height: 100%;
+            background: white;
+            width: 0%;
+            animation: loading 2s ease-in-out forwards;
+        }
+
+        /* 图标浮动动画 */
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* 加载进度动画 */
+        @keyframes loading {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 应用图标 -->
+    <div class="logo">📊</div>
+
+    <!-- 应用信息 -->
+    <div class="title">工作助手</div>
+    <div class="subtitle">智能日报周报生成工具</div>
+
+    <!-- 加载进度 -->
+    <div class="progress">
+        <div class="progress-bar"></div>
+    </div>
+    <div class="loading">正在启动应用...</div>
+</body>
+</html>

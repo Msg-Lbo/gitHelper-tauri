@@ -125,38 +125,70 @@ fn health_check() -> Result<String, String> {
     Ok("应用程序运行正常".to_string())
 }
 
-// Tauri 命令：显示启动画面
-#[tauri::command]
-async fn show_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
-    log::info!("显示启动画面");
 
-    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
-        splashscreen.show().map_err(|e| {
-            log::error!("显示启动画面失败: {}", e);
-            e.to_string()
-        })?;
-        log::info!("启动画面已显示");
+// Tauri 命令：通用HTTP请求
+// 使用reqwest库发送HTTP请求，解决跨域问题
+#[tauri::command]
+async fn http_request(
+    url: String,
+    method: String,
+    headers: Option<std::collections::HashMap<String, String>>,
+    body: Option<String>
+) -> Result<String, String> {
+    log::info!("HTTP请求: {} {}", method, url);
+
+    let client = reqwest::Client::new();
+
+    // 构建请求
+    let mut request = match method.to_uppercase().as_str() {
+        "GET" => client.get(&url),
+        "POST" => client.post(&url),
+        "PUT" => client.put(&url),
+        "DELETE" => client.delete(&url),
+        _ => return Err("不支持的HTTP方法".to_string()),
+    };
+
+    // 添加请求头
+    if let Some(headers) = headers {
+        for (key, value) in headers {
+            request = request.header(&key, &value);
+        }
     }
 
-    Ok(())
+    // 添加请求体
+    if let Some(body) = body {
+        request = request.body(body);
+    }
+
+    // 发送请求
+    match request.send().await {
+        Ok(response) => {
+            match response.text().await {
+                Ok(text) => {
+                    log::info!("HTTP请求成功，响应长度: {}", text.len());
+                    Ok(text)
+                }
+                Err(e) => {
+                    log::error!("读取响应失败: {}", e);
+                    Err(format!("读取响应失败: {}", e))
+                }
+            }
+        }
+        Err(e) => {
+            log::error!("HTTP请求失败: {}", e);
+            Err(format!("HTTP请求失败: {}", e))
+        }
+    }
 }
+
+
 
 // Tauri 命令：关闭启动画面并显示主窗口
 #[tauri::command]
 async fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
     log::info!("准备关闭启动画面并显示主窗口");
 
-    // 获取启动画面窗口
-    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
-        // 关闭启动画面
-        splashscreen.close().map_err(|e| {
-            log::error!("关闭启动画面失败: {}", e);
-            e.to_string()
-        })?;
-        log::info!("启动画面已关闭");
-    }
-
-    // 获取主窗口并显示
+    // 先显示主窗口，确保无缝切换
     if let Some(main_window) = app.get_webview_window("main") {
         main_window.show().map_err(|e| {
             log::error!("显示主窗口失败: {}", e);
@@ -172,6 +204,18 @@ async fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
         log::info!("主窗口已显示并获得焦点");
     }
 
+    // 稍微延迟后关闭启动画面，确保主窗口已完全显示
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+    // 获取启动画面窗口并关闭
+    if let Some(splashscreen) = app.get_webview_window("splashscreen") {
+        splashscreen.close().map_err(|e| {
+            log::error!("关闭启动画面失败: {}", e);
+            e.to_string()
+        })?;
+        log::info!("启动画面已关闭");
+    }
+
     Ok(())
 }
 
@@ -180,39 +224,58 @@ async fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_http::init())
         .setup(|app| {
             // 在生产环境也启用日志，方便调试
             app.handle().plugin(
                 tauri_plugin_log::Builder::default()
-                    .level(if cfg!(debug_assertions) {
-                        log::LevelFilter::Debug
-                    } else {
-                        log::LevelFilter::Info
-                    })
+                    .level(log::LevelFilter::Info)
                     .build(),
             )?;
 
+            println!("工作助手应用程序启动成功");
             log::info!("工作助手应用程序启动成功");
             log::info!("版本: {}", env!("CARGO_PKG_VERSION"));
 
-            // 记录窗口初始化信息
-            if let Some(_splashscreen) = app.get_webview_window("splashscreen") {
-                log::info!("启动画面窗口已创建（隐藏状态）");
-            }
+            // 创建启动画面窗口 - 在主窗口加载前先显示
+            let splashscreen_window = tauri::WebviewWindowBuilder::new(
+                app,
+                "splashscreen", // 窗口标识符
+                tauri::WebviewUrl::App("splash-simple.html".into()) // 启动画面HTML文件
+            )
+            .title("工作助手 - 启动中") // 窗口标题
+            .inner_size(400.0, 300.0) // 窗口大小：400x300像素
+            .resizable(false) // 禁止调整大小
+            .decorations(false) // 无边框
+            .center() // 居中显示
+            .always_on_top(true) // 置顶显示
+            .skip_taskbar(true) // 不在任务栏显示
+            .build();
 
-            if let Some(_main_window) = app.get_webview_window("main") {
-                log::info!("主窗口已创建（隐藏状态）");
-            }
-
-            // 延迟显示启动画面，确保内容已准备好
-            let app_handle = app.handle().clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                if let Err(e) = tauri::async_runtime::block_on(show_splashscreen(app_handle)) {
-                    log::error!("显示启动画面失败: {}", e);
+            // 处理启动画面窗口创建结果
+            match splashscreen_window {
+                Ok(_) => {
+                    log::info!("启动画面窗口创建成功");
+                    println!("启动画面窗口创建成功");
                 }
-            });
+                Err(e) => {
+                    log::error!("创建启动画面窗口失败: {}", e);
+                    println!("创建启动画面窗口失败: {}", e);
+                }
+            }
+
+            // 主窗口保持隐藏状态，等待前端完全加载完成
+            if let Some(main_window) = app.get_webview_window("main") {
+                log::info!("主窗口已创建但保持隐藏");
+                println!("主窗口已创建但保持隐藏");
+
+                // 确保主窗口隐藏，避免与启动画面同时显示
+                if let Err(e) = main_window.hide() {
+                    log::warn!("隐藏主窗口失败: {}", e);
+                }
+            } else {
+                log::error!("未找到主窗口");
+                println!("未找到主窗口");
+            }
 
             Ok(())
         })
@@ -223,8 +286,8 @@ pub fn run() {
             window_minimize,
             window_close,
             health_check,
-            show_splashscreen,
-            close_splashscreen
+            close_splashscreen,
+            http_request
         ])
         .run(tauri::generate_context!())
         .expect("运行Tauri应用程序时出错");

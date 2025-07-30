@@ -30,9 +30,12 @@ importers:
       '@tauri-apps/cli':
         specifier: ^2.7.1
         version: 2.7.1
+      '@types/node':
+        specifier: ^24.1.0
+        version: 24.1.0
       '@vitejs/plugin-vue':
         specifier: ^6.0.0
-        version: 6.0.0(vite@7.0.6(sass-embedded@1.89.2))(vue@3.5.18(typescript@5.8.3))
+        version: 6.0.0(vite@7.0.6(@types/node@24.1.0)(sass-embedded@1.89.2))(vue@3.5.18(typescript@5.8.3))
       '@vue/tsconfig':
         specifier: ^0.7.0
         version: 0.7.0(typescript@5.8.3)(vue@3.5.18(typescript@5.8.3))
@@ -44,7 +47,7 @@ importers:
         version: 5.8.3
       vite:
         specifier: ^7.0.4
-        version: 7.0.6(sass-embedded@1.89.2)
+        version: 7.0.6(@types/node@24.1.0)(sass-embedded@1.89.2)
       vue-tsc:
         specifier: 3.0.3
         version: 3.0.3(typescript@5.8.3)
@@ -441,6 +444,9 @@ packages:
   '@types/lodash@4.17.20':
     resolution: {integrity: sha512-H3MHACvFUEiujabxhaI/ImO6gUrd8oOurg7LQtS7mbwIXA/cUqWrvBsaeJ23aZEPk1TAYkurjfMbSELfoCXlGA==}
 
+  '@types/node@24.1.0':
+    resolution: {integrity: sha512-ut5FthK5moxFKH2T1CUOC6ctR67rQRvvHdFLCD2Ql6KXmMuCrjsSsRI9UsLCm9M18BMwClv4pn327UvB7eeO1w==}
+
   '@vicons/ionicons5@0.13.0':
     resolution: {integrity: sha512-zvZKBPjEXKN7AXNo2Na2uy+nvuv6SP4KAMQxpKL2vfHMj0fSvuw7JZcOPCjQC3e7ayssKnaoFVAhbYcW6v41qQ==}
 
@@ -765,6 +771,9 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  undici-types@7.8.0:
+    resolution: {integrity: sha512-9UJ2xGDvQ43tYyVMpuHlsgApydB8ZKfVYTsLDhXkFL/6gfkp+U8xTGdh8pMJv1SpZna0zxG1DwsKZsreLbXBxw==}
+
   varint@6.0.0:
     resolution: {integrity: sha512-cXEIW6cfr15lFv563k4GuVuW/fiwjknytD37jIOLSdSWuOI6WnO/oKwmP2FQTU2l01LP8/M5TSAJpzUaGe3uWg==}
 
@@ -1078,12 +1087,16 @@ snapshots:
 
   '@types/lodash@4.17.20': {}
 
+  '@types/node@24.1.0':
+    dependencies:
+      undici-types: 7.8.0
+
   '@vicons/ionicons5@0.13.0': {}
 
-  '@vitejs/plugin-vue@6.0.0(vite@7.0.6(sass-embedded@1.89.2))(vue@3.5.18(typescript@5.8.3))':
+  '@vitejs/plugin-vue@6.0.0(vite@7.0.6(@types/node@24.1.0)(sass-embedded@1.89.2))(vue@3.5.18(typescript@5.8.3))':
     dependencies:
       '@rolldown/pluginutils': 1.0.0-beta.19
-      vite: 7.0.6(sass-embedded@1.89.2)
+      vite: 7.0.6(@types/node@24.1.0)(sass-embedded@1.89.2)
       vue: 3.5.18(typescript@5.8.3)
 
   '@volar/language-core@2.4.20':
@@ -1428,6 +1441,8 @@ snapshots:
 
   typescript@5.8.3: {}
 
+  undici-types@7.8.0: {}
+
   varint@6.0.0: {}
 
   vdirs@0.1.8(vue@3.5.18(typescript@5.8.3)):
@@ -1435,7 +1450,7 @@ snapshots:
       evtd: 0.2.4
       vue: 3.5.18(typescript@5.8.3)
 
-  vite@7.0.6(sass-embedded@1.89.2):
+  vite@7.0.6(@types/node@24.1.0)(sass-embedded@1.89.2):
     dependencies:
       esbuild: 0.25.8
       fdir: 6.4.6(picomatch@4.0.3)
@@ -1444,6 +1459,7 @@ snapshots:
       rollup: 4.45.1
       tinyglobby: 0.2.14
     optionalDependencies:
+      '@types/node': 24.1.0
       fsevents: 2.3.3
       sass-embedded: 1.89.2
 

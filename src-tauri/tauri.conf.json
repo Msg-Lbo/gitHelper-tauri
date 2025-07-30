@@ -12,22 +12,6 @@
   "app": {
     "windows": [
       {
-        "label": "splashscreen",
-        "title": "工作助手 - 启动中",
-        "url": "splashscreen.html",
-        "width": 400,
-        "height": 300,
-        "resizable": false,
-        "fullscreen": false,
-        "decorations": false,
-        "center": true,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "visible": false,
-        "backgroundColor": "#667eea",
-        "transparent": false
-      },
-      {
         "label": "main",
         "title": "工作助手",
         "width": 1000,
@@ -36,7 +20,8 @@
         "fullscreen": false,
         "decorations": false,
         "center": true,
-        "visible": false
+        "visible": false,
+        "transparent": true
       }
     ],
     "security": {
