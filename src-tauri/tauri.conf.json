@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "工作助手",
+  "productName": "WorkHelper",
   "version": "0.1.0",
-  "identifier": "com.workhelper.app",
+  "identifier": "com.msglbo.workhelper",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -40,19 +40,12 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self'; connect-src 'self' https://ai.mufengweilai.com https://api.deepseek.com; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:",
       "dangerousDisableAssetCspModification": false
     },
     "withGlobalTauri": false
   },
-  "plugins": {
-    "http": {
-      "scope": [
-        "https://ai.mufengweilai.com/**",
-        "https://api.deepseek.com/**"
-      ]
-    }
-  },
+  "plugins": {},
   "bundle": {
     "active": true,
     "targets": ["nsis"],
@@ -63,8 +56,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "publisher": "工作助手团队",
-    "copyright": "Copyright © 2024 工作助手团队. All rights reserved.",
+    "publisher": "Msg-Lbo",
+    "copyright": "Copyright © 2024 Msg-Lbo. All rights reserved.",
     "category": "Productivity",
     "shortDescription": "工作助手 - 智能日报周报生成工具",
     "longDescription": "工作助手是一款智能化的日报周报生成工具，通过分析工作内容自动生成规范的工作汇报，并支持一键提交到OA系统，大幅提升工作效率。",
@@ -75,7 +68,8 @@
       "nsis": {
         "installMode": "perMachine",
         "languages": ["SimpChinese"],
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
       }
     }
   }
