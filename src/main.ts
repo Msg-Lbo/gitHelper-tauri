@@ -4,7 +4,7 @@
  */
 
 // Vue 核心库导入
-import { createApp } from 'vue'
+import { createApp, nextTick } from 'vue'
 // 全局样式导入
 import './style.css'
 // 根组件导入
@@ -43,7 +43,7 @@ async function closeSplashscreen() {
 // 在 DOM 加载完成和 Vue 应用挂载后关闭启动画面
 document.addEventListener('DOMContentLoaded', () => {
   // 使用 nextTick 确保 Vue 应用完全渲染
-  app.config.globalProperties.$nextTick(() => {
+  nextTick(() => {
     closeSplashscreen()
   })
 })

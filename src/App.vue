@@ -113,8 +113,26 @@
                                     </div>
 
                                     <!-- 版本信息 -->
-                                    <div class="version-info">
+                                    <div class="version-info" @click="handleVersionClick" :class="{ clickable: hasUpdateAvailable || hasDownloadedUpdate }">
                                         <span class="version-text">v{{ appVersion }}</span>
+                                        <!-- 更新提示箭头 -->
+                                        <n-icon
+                                            v-if="hasUpdateAvailable"
+                                            size="16"
+                                            class="update-indicator"
+                                            color="#18a058"
+                                        >
+                                            <ArrowUpOutline />
+                                        </n-icon>
+                                        <!-- 已下载更新提示 -->
+                                        <n-icon
+                                            v-else-if="hasDownloadedUpdate"
+                                            size="16"
+                                            class="downloaded-indicator"
+                                            color="#f0a020"
+                                        >
+                                            <DownloadOutline />
+                                        </n-icon>
                                     </div>
                                 </template>
                             </div>
@@ -131,6 +149,18 @@
                 </div>
             </div>
         </n-message-provider>
+
+        <!-- 更新模态框 -->
+        <UpdateModal
+            v-model:show="showUpdateModal"
+            :current-version="appVersion"
+            :version-info="latestVersionInfo"
+            :has-downloaded-update="hasDownloadedUpdate"
+            :downloaded-update-path="downloadedUpdatePath"
+            @cancel="handleUpdateCancel"
+            @install-completed="handleInstallCompleted"
+            @message="handleUpdateMessage"
+        />
     </n-config-provider>
 </template>
 
@@ -138,13 +168,18 @@
 // ==================== 导入依赖 ====================
 
 // Naive UI 相关导入
-import { lightTheme, NConfigProvider, NMessageProvider, createDiscreteApi } from "naive-ui";
+import { lightTheme, NConfigProvider, NMessageProvider, NIcon, createDiscreteApi } from "naive-ui";
+// 图标导入
+import { ArrowUpOutline, DownloadOutline } from "@vicons/ionicons5";
 // 组件导入
 import TitleBar from "./components/TitleBar.vue";
 import HomeTabs from "./components/HomeTabs.vue";
+import UpdateModal from "./components/UpdateModal.vue";
 // API 导入
 import { checkDeepSeekBalance } from "./api/deepseek";
 import { getTodayWorkingHours, OATokenManager } from "./api/oa";
+// 更新相关导入（动态加载以避免阻塞启动）
+let updateAPI: any = null;
 // Vue 相关导入
 import { onMounted, ref } from "vue";
 // Tauri API 导入
@@ -176,6 +211,16 @@ const appVersion = ref("");
 const activeTab = ref("report");
 // 系统初始化状态
 const systemInitializing = ref(true);
+
+// ==================== 更新相关状态 ====================
+
+// 更新检测状态
+const hasUpdateAvailable = ref(false);
+const hasDownloadedUpdate = ref(false);
+const latestVersionInfo = ref<any>(null);
+const downloadedUpdatePath = ref<string>('');
+const showUpdateModal = ref(false);
+const updateCheckCompleted = ref(false);
 
 // 创建消息提示实例
 const { message } = createDiscreteApi(["message"], {
@@ -213,6 +258,144 @@ const getSettings = () => {
         }
     }
     return {};
+};
+
+// ==================== 更新检测相关函数 ====================
+
+/**
+ * 动态加载更新API
+ */
+const loadUpdateAPI = async () => {
+    if (!updateAPI) {
+        try {
+            updateAPI = await import('./api/updater');
+            console.log('✅ 更新API加载成功');
+        } catch (error) {
+            console.error('❌ 更新API加载失败:', error);
+            return null;
+        }
+    }
+    return updateAPI;
+};
+
+/**
+ * 检查更新
+ */
+const checkForAppUpdates = async () => {
+    try {
+        console.log('🔍 开始检查应用更新...');
+
+        // 动态加载更新API
+        const api = await loadUpdateAPI();
+        if (!api) {
+            console.warn('⚠️ 更新API不可用，跳过更新检查');
+            updateCheckCompleted.value = true;
+            return;
+        }
+
+        const result = await api.checkForUpdates();
+
+        if (result.hasUpdate && result.versionInfo) {
+            console.log('✅ 发现新版本:', result.versionInfo.version);
+            hasUpdateAvailable.value = true;
+            latestVersionInfo.value = result.versionInfo;
+
+            // 检查是否已经下载过这个版本
+            const downloadedPath = await api.getDownloadedUpdatePath(result.versionInfo.version);
+            if (downloadedPath) {
+                hasDownloadedUpdate.value = true;
+                downloadedUpdatePath.value = downloadedPath;
+                console.log('📦 已下载更新包:', downloadedPath);
+            }
+
+            // 自动显示更新模态框
+            showUpdateModal.value = true;
+        } else {
+            console.log('✅ 当前已是最新版本');
+            hasUpdateAvailable.value = false;
+            latestVersionInfo.value = null;
+        }
+
+        updateCheckCompleted.value = true;
+    } catch (error) {
+        console.error('❌ 检查更新失败:', error);
+        updateCheckCompleted.value = true;
+        // 不显示错误消息，避免干扰用户体验
+    }
+};
+
+/**
+ * 处理版本号点击事件
+ */
+const handleVersionClick = async () => {
+    if (!updateCheckCompleted.value) {
+        message.info('正在检查更新，请稍候...');
+        return;
+    }
+
+    if (hasUpdateAvailable.value || hasDownloadedUpdate.value) {
+        // 如果有更新或已下载更新，显示更新模态框
+        showUpdateModal.value = true;
+    } else {
+        // 手动检查更新
+        message.info('正在检查更新...');
+        await checkForAppUpdates();
+
+        if (!hasUpdateAvailable.value) {
+            message.success('当前已是最新版本！');
+        }
+    }
+};
+
+/**
+ * 处理更新取消
+ */
+const handleUpdateCancel = () => {
+    showUpdateModal.value = false;
+};
+
+/**
+ * 处理安装完成
+ */
+const handleInstallCompleted = () => {
+    showUpdateModal.value = false;
+    // 应用将重启，这里的代码可能不会执行
+};
+
+/**
+ * 处理更新模态框的消息事件
+ */
+const handleUpdateMessage = (type: 'success' | 'error' | 'info' | 'warning', content: string) => {
+    // 使用父组件的 message 实例显示消息
+    switch (type) {
+        case 'success':
+            message.success(content);
+            break;
+        case 'error':
+            message.error(content);
+            break;
+        case 'info':
+            message.info(content);
+            break;
+        case 'warning':
+            message.warning(content);
+            break;
+    }
+};
+
+/**
+ * 清理旧的更新文件
+ */
+const cleanupUpdates = async () => {
+    try {
+        const api = await loadUpdateAPI();
+        if (api) {
+            await api.cleanupOldUpdates();
+            console.log('🧹 清理旧更新文件完成');
+        }
+    } catch (error) {
+        console.error('❌ 清理更新文件失败:', error);
+    }
 };
 
 // 检查 DeepSeek 账户余额
@@ -304,7 +487,17 @@ const performSystemCheck = async () => {
         // 4. 获取今日工时（如果已登录OA系统）
         await loadTodayWorkingHours();
 
-        // 5. 检查本地配置完整性
+        // 5. 清理旧的更新文件
+        await cleanupUpdates();
+
+        // 6. 启动后台更新检查（延迟执行，确保不阻塞主窗口显示）
+        setTimeout(() => {
+            checkForAppUpdates().catch(error => {
+                console.warn('后台更新检查失败:', error);
+            });
+        }, 5000); // 延迟5秒执行，确保主窗口已完全显示
+
+        // 7. 检查本地配置完整性
         const settings = getSettings();
         const hasGitUser = !!settings.gitUser;
         const hasToken = !!settings.token;
@@ -317,7 +510,7 @@ const performSystemCheck = async () => {
             balanceAvailable: balanceInfo.value?.is_available || false,
         });
 
-        // 5. 显示系统状态总结
+        // 8. 显示系统状态总结
         if (!hasGitUser || !hasToken || !hasTemplates) {
             message.warning("系统配置不完整，请前往设置页面完善配置");
         } else if (balanceInfo.value?.is_available) {
@@ -552,9 +745,36 @@ onMounted(async () => {
             }
 
             .version-info {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: default;
+                padding: 4px 8px;
+                border-radius: 4px;
+                transition: all 0.2s ease;
+
+                &.clickable {
+                    cursor: pointer;
+
+                    &:hover {
+                        background: rgba(255, 255, 255, 0.1);
+                        transform: translateY(-1px);
+                    }
+                }
+
                 .version-text {
                     font-size: 12px;
                     color: #94a3b8;
+                    font-family: 'Consolas', 'Monaco', monospace;
+                    font-weight: 500;
+                }
+
+                .update-indicator {
+                    animation: bounce 1s infinite;
+                }
+
+                .downloaded-indicator {
+                    animation: pulse 2s infinite;
                 }
             }
 
@@ -582,6 +802,19 @@ onMounted(async () => {
     }
     50% {
         opacity: 0.5;
+    }
+}
+
+/* 弹跳动画 */
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-4px);
+    }
+    60% {
+        transform: translateY(-2px);
     }
 }
 
