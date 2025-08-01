@@ -16,24 +16,24 @@
       <!-- 版本信息区域 -->
       <div class="version-section">
         <div class="version-info">
-          <div class="current-version">
+          <div class="current-version flex align-center gap-10">
             <span class="version-label">当前版本：</span>
             <span class="version-number">v{{ currentVersion }}</span>
           </div>
-          <div class="new-version">
+          <div class="new-version flex align-center gap-10">
             <span class="version-label">最新版本：</span>
             <span class="version-number highlight">v{{ versionInfo?.version }}</span>
             <n-tag type="success" size="small" class="new-tag">NEW</n-tag>
           </div>
         </div>
-        
+
         <!-- 文件信息 -->
         <div class="file-info" v-if="versionInfo">
-          <div class="file-size">
+          <div class="file-size flex align-center gap-10">
             <n-icon size="16" class="info-icon"><DownloadOutline /></n-icon>
             <span>文件大小：{{ versionInfo.fileSizeFormatted }}</span>
           </div>
-          <div class="release-date">
+          <div class="release-date flex align-center gap-10">
             <n-icon size="16" class="info-icon"><CalendarOutline /></n-icon>
             <span>发布日期：{{ formatDate(versionInfo.releaseDate) }}</span>
           </div>
@@ -42,7 +42,7 @@
 
       <!-- 更新日志区域 -->
       <div class="changelog-section" v-if="versionInfo?.changelog?.length">
-        <h4 class="changelog-title">
+        <h4 class="changelog-title flex align-center gap-10">
           <n-icon size="18"><DocumentTextOutline /></n-icon>
           更新内容
         </h4>

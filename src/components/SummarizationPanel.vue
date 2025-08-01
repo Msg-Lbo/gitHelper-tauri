@@ -1,17 +1,17 @@
 <template>
-  <div class="summarization-panel">
+  <div class="summarization-panel flex-1 flex flex-col overflow-hidden">
     <!-- 操作区域 -->
     <div class="action-section">
-      <div class="action-buttons">
-        <button class="action-btn primary" @click="openProjectModal('daily')">
+      <div class="action-buttons flex gap-15">
+        <button class="action-btn primary flex align-center gap-10" @click="openProjectModal('daily')">
           <span class="btn-icon">📊</span>
           <span class="btn-text">总结正常日报</span>
         </button>
-        <button class="action-btn primary" @click="openProjectModal('overtime')">
+        <button class="action-btn primary flex align-center gap-10" @click="openProjectModal('overtime')">
           <span class="btn-icon">⏰</span>
           <span class="btn-text">总结加班日报</span>
         </button>
-        <button class="action-btn primary" @click="openProjectModal('weekly')">
+        <button class="action-btn primary flex align-center gap-10" @click="openProjectModal('weekly')">
           <span class="btn-icon">📅</span>
           <span class="btn-text">总结周报</span>
         </button>
@@ -19,35 +19,35 @@
     </div>
 
     <!-- 内容展示区域 -->
-    <div class="content-section">
-      <div class="content-card">
-        <div class="content-header">
+    <div class="content-section flex-1 flex flex-col overflow-hidden">
+      <div class="content-card flex-1 flex flex-col overflow-hidden">
+        <div class="content-header flex justify-between align-center">
           <h3 class="content-title">生成结果</h3>
           <div class="content-status" :class="{ loading: loading }">
             <span v-if="loading" class="status-text">生成中...</span>
             <span v-else class="status-text">就绪</span>
           </div>
         </div>
-        <div class="content-body">
-          <div ref="logContainerRef" class="log-container" :class="{ loading: loading }">
+        <div class="content-body flex-1 flex flex-col overflow-hidden">
+          <div ref="logContainerRef" class="log-container flex-1 overflow-y-auto" :class="{ loading: loading }">
             <pre class="log-content">{{ logRef || '点击上方按钮开始生成报告...' }}</pre>
           </div>
         </div>
       </div>
     </div>
     <!-- 项目选择模态框 -->
-    <div v-if="showModal" class="modal-overlay" @click="showModal = false">
+    <div v-if="showModal" class="modal-overlay flex align-center justify-center" @click="showModal = false">
       <div class="modal-content" @click.stop>
-        <div class="modal-header">
+        <div class="modal-header flex justify-between align-center">
           <h3 class="modal-title">{{ modalTitle }}</h3>
-          <button class="modal-close" @click="showModal = false">×</button>
+          <button class="modal-close flex align-center justify-center" @click="showModal = false">×</button>
         </div>
         <div class="modal-body">
           <!-- 单选模式 -->
           <div v-if="selectMode === 'single'" class="project-selection">
             <div class="selection-title">请选择项目：</div>
             <div class="radio-group">
-              <label v-for="p in projectList" :key="p.path" class="radio-item">
+              <label v-for="p in projectList" :key="p.path" class="radio-item flex align-center gap-10">
                 <input
                   type="radio"
                   :value="p.path"
@@ -62,7 +62,7 @@
           <div v-else class="project-selection">
             <div class="selection-title">请选择项目：</div>
             <div class="checkbox-group">
-              <label v-for="p in projectList" :key="p.path" class="checkbox-item">
+              <label v-for="p in projectList" :key="p.path" class="checkbox-item flex align-center gap-10">
                 <input
                   type="checkbox"
                   :value="p.path"
@@ -74,7 +74,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer flex justify-end gap-15">
           <button class="modal-btn primary" @click="onProjectSelectConfirm">确定</button>
           <button class="modal-btn secondary" @click="showModal = false">取消</button>
         </div>
@@ -94,16 +94,33 @@
 
 <script setup lang="ts">
 import { ref, nextTick, watchEffect } from "vue";
-import { useMessage } from "naive-ui";
+import { useMessage, useDialog } from "naive-ui";
 import { chatWithDeepSeek } from "../api/deepseek";
 import { invoke } from "@tauri-apps/api/core";
+
+// 定义组件事件
+const emit = defineEmits<{
+  'submit-report': [data: {
+    projectId: string;
+    projectName: string;
+    description: string;
+    workType: string;
+    fullProject: any;
+  }];
+  'bind-project': [project: Project];
+}>();
 
 const type = ref<"daily" | "overtime" | "weekly">("daily");
 const loading = ref(false);
 const message = useMessage();
+const dialog = useDialog();
 const logRef = ref("");
 const logContainerRef = ref<HTMLElement | null>(null);
 const showCopyButton = ref(false);
+
+// 提交日报相关状态
+const currentSummary = ref("");
+const currentProjectInfo = ref<Project | null>(null);
 
 // 获取配置
 const getSettings = () => {
@@ -183,6 +200,15 @@ const onProjectSelectConfirm = async () => {
         message.warning("请至少选择一个项目");
         return;
     }
+
+    // 设置当前项目信息（用于后续提交日报）
+    if (selectMode.value === "single" && selectedProject.value) {
+        const project = projectList.value.find(p => p.path === selectedProject.value);
+        if (project) {
+            currentProjectInfo.value = project;
+        }
+    }
+
     showModal.value = false;
     await handleSummarize(type.value);
 };
@@ -261,44 +287,27 @@ const handleSummarizeDeepSeek = async () => {
         }
         // 先在日志最后一行添加分割线
         logRef.value += "\n--------------------\n";
-        // 流式输出
-        let deepseekText = "";
-        const response = await chatWithDeepSeek(messages, token, "deepseek-chat", true);
-        const reader = response.body!.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let done = false;
-        let buffer = "";
-        while (!done) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            if (value) {
-                buffer += decoder.decode(value, { stream: true });
-                let lines = buffer.split("\n");
-                buffer = lines.pop() || ""; // 保留最后一行（可能是不完整的）
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (trimmed.startsWith("data: ")) {
-                        const jsonStr = trimmed.replace("data: ", "");
-                        if (jsonStr === "[DONE]") continue;
-                        try {
-                            const data = JSON.parse(jsonStr);
-                            const content = data.choices?.[0]?.delta?.content;
-                            if (content) {
-                                deepseekText += content;
-                                logRef.value = logRef.value.replace(/(--------------------\n)[\s\S]*$/, `$1${deepseekText}`);
-                                // 在内容更新后立即滚动到底部
-                                await nextTick();
-                                scrollToBottom();
-                                await new Promise((r) => setTimeout(r, 10));
-                            }
-                        } catch {}
-                    }
-                }
-            }
+        // 调用 DeepSeek API 进行总结（非流式）
+        logRef.value += "正在调用 DeepSeek API...\n";
+        const response = await chatWithDeepSeek(messages, token, "deepseek-chat", false);
+
+        // 处理非流式响应
+        if (response && response.choices && response.choices[0] && response.choices[0].message) {
+            const deepseekText = response.choices[0].message.content;
+            logRef.value = logRef.value.replace(/(--------------------\n)[\s\S]*$/, `$1${deepseekText}`);
+            await nextTick();
+            scrollToBottom();
+        } else {
+            throw new Error("DeepSeek API 响应格式错误");
         }
-        // deepseek 输出完成后显示复制按钮
+        // deepseek 输出完成后显示复制按钮和提交确认
         await nextTick();
         showCopyButton.value = true;
+
+        // 如果是日报类型（正常日报或加班日报），询问是否提交
+        if (type.value === "daily" || type.value === "overtime") {
+            await showSubmitConfirmation();
+        }
     } catch (error) {
         console.error("DeepSeek 总结失败:", error);
         message.error("DeepSeek 总结失败");
@@ -318,6 +327,95 @@ const handleCopySummary = async () => {
     }
 };
 
+// 显示提交确认对话框
+const showSubmitConfirmation = async () => {
+    // 提取DeepSeek生成的内容作为日报描述
+    const match = logRef.value.match(/--------------------\n([\s\S]*)$/);
+    const summary = match ? match[1].trim() : "";
+
+    if (!summary) {
+        message.warning("没有可提交的内容");
+        return;
+    }
+
+    // 检查当前选中的项目是否绑定了OA项目
+    if (!currentProjectInfo.value) {
+        message.warning("请先选择项目");
+        return;
+    }
+
+    // 获取项目列表，检查绑定状态
+    const projectsData = localStorage.getItem("githelper-projects");
+    if (!projectsData) {
+        message.warning("未找到项目信息");
+        return;
+    }
+
+    const projects = JSON.parse(projectsData);
+    const project = projects.find((p: any) => p.path === currentProjectInfo.value?.path);
+
+    if (!project) {
+        message.warning("未找到当前项目信息");
+        return;
+    }
+
+    // 存储当前摘要内容
+    currentSummary.value = summary;
+
+    // 检查项目是否已绑定OA项目
+    if (!project.oaProjectId) {
+        // 未绑定，询问是否要绑定
+        dialog.warning({
+            title: '项目未绑定',
+            content: `项目"${project.alias}"尚未绑定OA项目，是否现在绑定？`,
+            positiveText: '立即绑定',
+            negativeText: '取消',
+            onPositiveClick: () => {
+                // 触发绑定项目事件
+                emit('bind-project', project);
+            }
+        });
+        return;
+    }
+
+    // 已绑定，询问是否提交日报
+    dialog.info({
+        title: '提交日报',
+        content: '是否要将当前总结提交为日报？',
+        positiveText: '是',
+        negativeText: '否',
+        onPositiveClick: () => {
+            handleSubmitReport(project, summary);
+        }
+    });
+};
+
+// 处理提交日报
+const handleSubmitReport = (project: any, summary: string) => {
+    // 触发事件，通知父组件打开日报填写模态框
+    emit('submit-report', {
+        projectId: project.oaProjectId,
+        projectName: project.oaProjectName || project.alias,
+        description: summary,
+        workType: type.value === "overtime" ? "加班" : "正常",
+        // 传递完整的项目信息，优先使用保存的 OA 项目信息
+        fullProject: project.oaProjectInfo || project
+    });
+};
+
+// 绑定完成后的回调，重新尝试提交
+const handleBindComplete = () => {
+    if (currentSummary.value) {
+        // 重新检查项目绑定状态并提交
+        showSubmitConfirmation();
+    }
+};
+
+// 暴露方法给父组件调用
+defineExpose({
+    handleBindComplete
+});
+
 // 自动滚动到底部的函数
 const scrollToBottom = () => {
     if (logContainerRef.value) {
@@ -335,31 +433,16 @@ watchEffect(() => {
 </script>
 
 <style scoped lang="scss">
-/* 总结面板容器 - 修复高度问题 */
-.summarization-panel {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow: hidden; /* 防止内容溢出 */
-}
-
 /* 操作区域 - 确保不被挤压 */
 .action-section {
   flex-shrink: 0; /* 防止被压缩 */
   padding-bottom: 16px; /* 底部留出空间 */
 
   .action-buttons {
-    display: flex;
-    gap: 16px;
     flex-wrap: wrap;
   }
 
   .action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
     padding: 12px 20px;
     border: none;
     border-radius: 8px;
@@ -392,30 +475,15 @@ watchEffect(() => {
   }
 }
 
-/* 内容区域 - 修复高度限制 */
-.content-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
 .content-card {
-  flex: 1;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 
   .content-header {
     padding: 20px 24px 16px;
     border-bottom: 1px solid #f1f5f9;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
 
     .content-title {
       font-size: 16px;
@@ -425,8 +493,6 @@ watchEffect(() => {
     }
 
     .content-status {
-      display: flex;
-      align-items: center;
       gap: 8px;
 
       .status-text {
@@ -451,17 +517,13 @@ watchEffect(() => {
   }
 
   .content-body {
-    flex: 1;
     padding: 24px;
-    overflow: hidden;
 
     .log-container {
-      height: 100%;
       max-height: 400px; /* 限制日志容器的最大高度 */
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
-      overflow: auto;
 
       &.loading {
         background: #f0fdf4;

@@ -11,7 +11,7 @@
     >
         <!-- 自定义标题栏 -->
         <template #header>
-            <div class="modal-header">
+            <div class="modal-header flex justify-between align-center">
                 <div class="header-spacer"></div>
                 <n-button quaternary circle size="small" class="close-btn" @click="handleClose">
                     <template #icon>

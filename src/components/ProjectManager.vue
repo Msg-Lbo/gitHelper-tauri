@@ -1,22 +1,22 @@
 <template>
-  <div class="project-manager">
+  <div class="project-manager flex-1 flex flex-col overflow-hidden">
     <!-- 操作区域 -->
     <div class="action-section">
-      <button class="action-btn primary" @click="handleSelectDirectory">
+      <button class="action-btn primary flex align-center gap-10" @click="handleSelectDirectory">
         <span class="btn-icon">📁</span>
         <span class="btn-text">选择项目文件夹</span>
       </button>
     </div>
 
     <!-- 项目列表 -->
-    <div class="projects-section">
-      <div class="projects-card">
-        <div class="card-header">
+    <div class="projects-section flex-1 flex flex-col overflow-hidden">
+      <div class="projects-card flex-1 flex flex-col overflow-hidden">
+        <div class="card-header flex justify-between align-center">
           <h3 class="card-title">项目列表</h3>
           <span class="project-count">{{ projects.length }} 个项目</span>
         </div>
-        <div class="card-content">
-          <div v-if="projects.length === 0" class="empty-state">
+        <div class="card-content flex-1 overflow-y-auto">
+          <div v-if="projects.length === 0" class="empty-state flex flex-col align-center justify-center">
             <div class="empty-icon">📂</div>
             <div class="empty-text">暂无项目</div>
             <div class="empty-description">点击上方按钮添加项目文件夹</div>
@@ -27,11 +27,12 @@
               :key="index"
               class="project-item"
             >
-              <div class="project-info">
+              <div class="project-info flex align-center gap-15">
                 <div class="project-icon">📁</div>
-                <div class="project-details">
+                <div class="project-details flex-1">
                   <div v-if="!project.editing" class="project-alias">
                     {{ project.alias }}
+                    <span v-if="project.oaProjectId" class="binding-badge">已绑定</span>
                   </div>
                   <input
                     v-else
@@ -42,20 +43,40 @@
                     @keyup.escape="handleCancelEdit(project)"
                     ref="editInput"
                   />
+                  <div class="project-identifier">标识符: {{ project.identifier }}</div>
+                  <div v-if="project.oaProjectName" class="oa-project-name">
+                    绑定项目: {{ project.oaProjectName }}
+                  </div>
                   <div class="project-path">{{ project.path }}</div>
                 </div>
               </div>
-              <div class="project-actions">
+              <div class="project-actions flex gap-10">
+                <button
+                  v-if="!project.oaProjectId"
+                  class="action-btn-small bind flex align-center justify-center"
+                  @click="handleBindOAProject(project)"
+                  title="绑定OA项目"
+                >
+                  🔗
+                </button>
+                <button
+                  v-else
+                  class="action-btn-small unbind flex align-center justify-center"
+                  @click="handleUnbindOAProject(project)"
+                  title="解绑OA项目"
+                >
+                  🔓
+                </button>
                 <button
                   v-if="!project.editing"
-                  class="action-btn-small edit"
+                  class="action-btn-small edit flex align-center justify-center"
                   @click="handleEditAlias(project)"
                   title="编辑别名"
                 >
                   ✏️
                 </button>
                 <button
-                  class="action-btn-small delete"
+                  class="action-btn-small delete flex align-center justify-center"
                   @click="showDeleteConfirm(project, index)"
                   title="删除项目"
                 >
@@ -67,6 +88,14 @@
         </div>
       </div>
     </div>
+
+    <!-- OA项目选择器 -->
+    <OAProjectSelector
+      v-model:show="showOASelector"
+      :local-project-id="bindingProject?.id || ''"
+      :local-project-name="bindingProject?.alias || ''"
+      @confirm="handleOAProjectSelected"
+    />
 
     <!-- 删除确认模态框 -->
     <div v-if="showDeleteModal" class="modal-overlay" @click="cancelDelete">
@@ -103,12 +132,20 @@
 import { ref, onMounted } from "vue";
 import { useMessage } from "naive-ui";
 import { invoke } from "@tauri-apps/api/core";
+import OAProjectSelector from './OAProjectSelector.vue';
+import type { ProjectInfo } from '../api/oa';
 
 interface Project {
-    alias: string;
-    path: string;
+    id: string;              // 项目唯一ID
+    alias: string;           // 项目别名
+    path: string;            // 项目路径
+    identifier: string;      // 项目标识符（用于绑定OA）
+    oaProjectId?: string;    // 绑定的OA项目ID
+    oaProjectName?: string;  // 绑定的OA项目名称
     editing?: boolean;
-    originalAlias?: string; // 用于取消编辑时恢复
+    originalAlias?: string;  // 用于取消编辑时恢复
+    createdAt: string;       // 创建时间
+    updatedAt: string;       // 更新时间
 }
 
 const LOCAL_KEY = "githelper-projects";
@@ -120,16 +157,49 @@ const showDeleteModal = ref(false);
 const deleteTarget = ref<Project | null>(null);
 const deleteIndex = ref(-1);
 
+// OA项目选择器相关状态
+const showOASelector = ref(false);
+const bindingProject = ref<Project | null>(null);
+
 const loadProjects = () => {
     const raw = localStorage.getItem(LOCAL_KEY);
     if (raw) {
         try {
-            projects.value = JSON.parse(raw);
-        } catch {}
+            const loadedProjects = JSON.parse(raw);
+            // 兼容旧版本数据，为缺少字段的项目添加默认值
+            projects.value = loadedProjects.map((project: any) => {
+                const now = new Date().toISOString();
+                return {
+                    id: project.id || generateId(),
+                    alias: project.alias,
+                    path: project.path,
+                    identifier: project.identifier || generateIdentifier(project.alias),
+                    oaProjectId: project.oaProjectId,
+                    oaProjectName: project.oaProjectName,
+                    createdAt: project.createdAt || now,
+                    updatedAt: project.updatedAt || now,
+                    ...project
+                };
+            });
+            // 保存更新后的数据
+            saveProjects();
+        } catch (error) {
+            console.error('加载项目数据失败:', error);
+        }
     }
 };
 const saveProjects = () => {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(projects.value));
+};
+
+// 生成唯一ID
+const generateId = (): string => {
+    return 'proj_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+};
+
+// 生成项目标识符
+const generateIdentifier = (alias: string): string => {
+    return alias.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 };
 
 // 选择项目文件夹
@@ -138,7 +208,16 @@ const handleSelectDirectory = async () => {
         const dirPath = (await invoke("select_directory")) as string | null;
         if (dirPath) {
             const alias = dirPath.replace(/\\/g, "/").split("/").pop() || dirPath;
-            projects.value.push({ alias, path: dirPath });
+            const now = new Date().toISOString();
+            const newProject: Project = {
+                id: generateId(),
+                alias,
+                path: dirPath,
+                identifier: generateIdentifier(alias),
+                createdAt: now,
+                updatedAt: now
+            };
+            projects.value.push(newProject);
             saveProjects();
             message.success("项目添加成功");
         }
@@ -197,6 +276,33 @@ const confirmDelete = () => {
         message.success("项目删除成功");
     }
     cancelDelete(); // 关闭模态框并重置状态
+};
+
+// 绑定OA项目
+const handleBindOAProject = (project: Project) => {
+    bindingProject.value = project;
+    showOASelector.value = true;
+};
+
+// 处理OA项目选择确认
+const handleOAProjectSelected = (oaProject: ProjectInfo) => {
+    if (bindingProject.value) {
+        bindingProject.value.oaProjectId = oaProject.id;
+        bindingProject.value.oaProjectName = oaProject.projectName;
+        bindingProject.value.updatedAt = new Date().toISOString();
+        saveProjects();
+        message.success(`成功绑定OA项目: ${oaProject.projectName}`);
+        bindingProject.value = null;
+    }
+};
+
+// 解绑OA项目
+const handleUnbindOAProject = (project: Project) => {
+    project.oaProjectId = undefined;
+    project.oaProjectName = undefined;
+    project.updatedAt = new Date().toISOString();
+    saveProjects();
+    message.success("OA项目解绑成功");
 };
 
 onMounted(loadProjects);
@@ -394,6 +500,19 @@ onMounted(loadProjects);
         font-weight: 500;
         color: #0f172a;
         margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .binding-badge {
+          font-size: 10px;
+          font-weight: 600;
+          color: #059669;
+          background: #d1fae5;
+          padding: 2px 6px;
+          border-radius: 10px;
+          border: 1px solid #a7f3d0;
+        }
       }
 
       .project-alias-input {
@@ -412,6 +531,24 @@ onMounted(loadProjects);
           border-color: #059669;
           box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
         }
+      }
+
+      .project-identifier {
+        font-size: 11px;
+        color: #7c3aed;
+        background: #f3f4f6;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-bottom: 4px;
+        font-family: 'Courier New', monospace;
+        display: inline-block;
+      }
+
+      .oa-project-name {
+        font-size: 12px;
+        color: #059669;
+        margin-bottom: 4px;
+        font-weight: 500;
       }
 
       .project-path {
@@ -439,6 +576,26 @@ onMounted(loadProjects);
       justify-content: center;
       font-size: 14px;
       transition: all 0.2s ease;
+
+      &.bind {
+        background: #f0fdf4;
+        color: #16a34a;
+
+        &:hover {
+          background: #dcfce7;
+          transform: scale(1.05);
+        }
+      }
+
+      &.unbind {
+        background: #fef3c7;
+        color: #d97706;
+
+        &:hover {
+          background: #fde68a;
+          transform: scale(1.05);
+        }
+      }
 
       &.edit {
         background: #f0f9ff;

@@ -1,9 +1,9 @@
 <template>
-    <div class="oa-system">
+    <div class="oa-system flex-1 flex flex-col overflow-hidden">
         <!-- 未登录状态：显示登录表单 -->
-        <div v-if="!isLoggedIn" class="login-container">
+        <div v-if="!isLoggedIn" class="login-container flex-1 flex align-center justify-center">
             <div class="login-card">
-                <div class="login-header">
+                <div class="login-header flex flex-col align-center">
                     <div class="login-icon">
                         <n-icon size="48" color="#10b981"><PersonOutline /></n-icon>
                     </div>
@@ -52,7 +52,7 @@
 
                         <!-- 验证码输入框 -->
                         <n-form-item path="captcha" class="form-item">
-                            <div class="captcha-container">
+                            <div class="captcha-container flex gap-10">
                                 <n-input
                                     v-model:value="loginForm.captcha"
                                     placeholder="请输入验证码"
@@ -66,13 +66,13 @@
                                         <n-icon size="14" color="#10b981"><EyeOutline /></n-icon>
                                     </template>
                                 </n-input>
-                                <div class="captcha-image" @click="refreshCaptcha">
+                                <div class="captcha-image flex align-center justify-center" @click="refreshCaptcha">
                                     <img v-if="captchaImage && !captchaLoading" :src="captchaImage" alt="验证码" />
-                                    <div v-else-if="captchaLoading" class="captcha-loading">
+                                    <div v-else-if="captchaLoading" class="captcha-loading flex flex-col align-center gap-5">
                                         <n-spin size="small" />
                                         <span>加载中</span>
                                     </div>
-                                    <div v-else class="captcha-placeholder">
+                                    <div v-else class="captcha-placeholder flex flex-col align-center gap-5">
                                         <n-icon size="16"><EyeOutline /></n-icon>
                                         <span>点击获取</span>
                                     </div>
@@ -95,10 +95,10 @@
         </div>
 
         <!-- 已登录状态：显示项目列表 -->
-        <div v-else class="project-list-container">
+        <div v-else class="project-list-container flex-1 flex flex-col overflow-hidden">
             <!-- 头部操作栏 -->
-            <div class="header-actions">
-                <div class="search-container">
+            <div class="header-actions flex justify-between align-center">
+                <div class="search-container flex gap-10">
                     <n-input
                         size="small"
                         v-model:value="searchForm.projectName"
@@ -170,6 +170,12 @@
                 <ReportList
                     :key="`report-list-${selectedProject.id}`"
                     :project-id="selectedProject.id"
+                    :project-name="selectedProject.projectName"
+                    :project-start-time="selectedProject.startTime"
+                    :project-end-time="selectedProject.endTime"
+                    :project-team-id="selectedProject.projectTeamId"
+                    :stage="selectedProject.stage"
+                    :stage-name="selectedProject.stageName"
                 />
             </template>
         </n-modal>

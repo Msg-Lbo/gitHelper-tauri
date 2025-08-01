@@ -1,7 +1,7 @@
 <template>
-    <div class="settings-panel">
+    <div class="settings-panel flex-1 flex flex-col overflow-hidden">
         <!-- 可滚动的内容区域 -->
-        <div class="settings-content">
+        <div class="settings-content flex-1 overflow-y-auto">
             <!-- ==================== 基础配置卡片 ==================== -->
             <div class="settings-card">
                 <div class="card-header">
@@ -92,15 +92,15 @@
 
         <!-- ==================== 固定操作按钮区域 ==================== -->
         <div class="actions-section">
-            <div class="actions-group">
+            <div class="actions-group flex gap-15">
                 <!-- 保存设置按钮 -->
-                <button class="btn btn-primary" @click="saveSettings">
+                <button class="btn btn-primary flex align-center gap-10" @click="saveSettings">
                     <span class="btn-icon">💾</span>
                     保存设置
                 </button>
 
                 <!-- 恢复默认按钮 -->
-                <button class="btn btn-secondary" @click="restoreDefault">
+                <button class="btn btn-secondary flex align-center gap-10" @click="restoreDefault">
                     <span class="btn-icon">🔄</span>
                     恢复默认
                 </button>
@@ -236,20 +236,11 @@ loadSettings();
     width: 100%;                    // 占满宽度
     max-width: 1200px;              // 最大宽度限制
     margin: 0 auto;                 // 水平居中
-    display: flex;                  // 弹性布局
-    flex-direction: column;         // 垂直方向
-    height: 100%;                   // 占满父容器高度
-    min-height: 0;                  // 重要：允许 flex 子元素正确收缩
-    overflow: hidden;               // 防止整体滚动
 }
 
 /* 可滚动的内容区域 */
 .settings-content {
-    flex: 1;                        // 占据剩余空间
-    overflow-y: auto;               // 允许垂直滚动
     padding: 0 8px 24px 0;          // 右侧留出滚动条空间，底部留出间距
-    display: flex;                  // 弹性布局
-    flex-direction: column;         // 垂直方向
     gap: 24px;                      // 卡片间距
 
     /* 自定义滚动条样式 */
@@ -410,32 +401,20 @@ loadSettings();
 
 /* 模板区域 */
 .template-section {
-    display: flex;
-    flex-direction: column;
     gap: 20px; /* 减少间距 */
 }
 
 /* 固定的操作区域 */
 .actions-section {
-    display: flex;
-    justify-content: flex-end;
     padding: 10px 8px; /* 右侧与滚动条对齐 */
     border-top: 1px solid #f1f5f9;
     background: #ffffff; /* 确保背景不透明 */
     flex-shrink: 0; /* 防止按钮区域被压缩 */
     border-radius: 12px;
-
-    .actions-group {
-        display: flex;
-        gap: 12px;
-    }
 }
 
 /* 按钮样式 */
 .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
     padding: 12px 24px;
     border: none;
     border-radius: 8px;

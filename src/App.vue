@@ -3,19 +3,21 @@
     <n-config-provider :theme="lightTheme">
         <!-- 消息提示提供者 -->
         <n-message-provider placement="top-right" container-style="top: 50px;">
+            <!-- 对话框提供者 -->
+            <n-dialog-provider>
             <div class="app-container">
                 <!-- ==================== 自定义标题栏 ==================== -->
                 <TitleBar />
 
                 <!-- ==================== 主应用布局 ==================== -->
-                <div class="app-layout">
+                <div class="app-layout flex">
                     <!-- 左侧导航栏 -->
-                    <aside class="sidebar">
+                    <aside class="sidebar flex flex-col">
                         <!-- 侧边栏头部 -->
                         <div class="sidebar-header">
                             <!-- Logo 区域 -->
-                            <div class="logo-section">
-                                <div class="logo-icon">
+                            <div class="logo-section flex align-center gap-15">
+                                <div class="logo-icon flex align-center justify-center">
                                     <!-- 工作助手图标 SVG -->
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                                         <path
@@ -44,25 +46,25 @@
                         </div>
 
                         <!-- 侧边栏导航 -->
-                        <nav class="sidebar-nav">
+                        <nav class="sidebar-nav flex-1">
                             <!-- 主要功能区域 -->
                             <div class="nav-section">
                                 <div class="nav-section-title">主要功能</div>
                                 <ul class="nav-list">
                                     <!-- 日/周报总结 -->
-                                    <li class="nav-item" :class="{ active: activeTab === 'report' }" @click="setActiveTab('report')">
+                                    <li class="nav-item flex align-center gap-15" :class="{ active: activeTab === 'report' }" @click="setActiveTab('report')">
                                         <div class="nav-icon">📊</div>
                                         <span class="nav-text">日/周报总结</span>
                                     </li>
 
                                     <!-- 项目管理 -->
-                                    <li class="nav-item" :class="{ active: activeTab === 'project' }" @click="setActiveTab('project')">
+                                    <li class="nav-item flex align-center gap-15" :class="{ active: activeTab === 'project' }" @click="setActiveTab('project')">
                                         <div class="nav-icon">📁</div>
                                         <span class="nav-text">项目管理</span>
                                     </li>
 
                                     <!-- OA系统 -->
-                                    <li class="nav-item" :class="{ active: activeTab === 'oa' }" @click="setActiveTab('oa')">
+                                    <li class="nav-item flex align-center gap-15" :class="{ active: activeTab === 'oa' }" @click="setActiveTab('oa')">
                                         <div class="nav-icon">🏢</div>
                                         <span class="nav-text">OA系统</span>
                                     </li>
@@ -74,7 +76,7 @@
                                 <div class="nav-section-title">系统设置</div>
                                 <ul class="nav-list">
                                     <!-- 设置页面 -->
-                                    <li class="nav-item" :class="{ active: activeTab === 'settings' }" @click="setActiveTab('settings')">
+                                    <li class="nav-item flex align-center gap-15" :class="{ active: activeTab === 'settings' }" @click="setActiveTab('settings')">
                                         <div class="nav-icon">⚙️</div>
                                         <span class="nav-text">基础设置</span>
                                     </li>
@@ -84,7 +86,7 @@
 
                         <!-- 状态信息卡片 -->
                         <div class="status-card">
-                            <div class="status-header">
+                            <div class="status-header flex align-center justify-between">
                                 <h3>DS状态</h3>
                                 <div
                                     class="status-indicator"
@@ -97,23 +99,23 @@
                             <!-- 状态信息内容 -->
                             <div class="status-content">
                                 <!-- 初始化状态提示 -->
-                                <div v-if="systemInitializing" class="initializing-info">
+                                <div v-if="systemInitializing" class="initializing-info flex align-center justify-center">
                                     <span class="initializing-text">系统初始化中...</span>
                                 </div>
                                 <!-- 正常状态信息 -->
                                 <template v-else>
                                     <!-- 账户余额信息 -->
-                                    <div class="balance-info">
+                                    <div class="balance-info flex justify-between align-center">
                                         <span class="balance-label">账户余额</span>
                                         <span class="balance-value">￥{{ balanceInfo?.balance_infos[0]?.total_balance || 0 }}</span>
                                     </div>
-                                    <div class="balance-info">
+                                    <div class="balance-info flex justify-between align-center">
                                         <span class="balance-label">今日工时</span>
                                         <span class="balance-value">{{ todayWorkingHours }}h</span>
                                     </div>
 
                                     <!-- 版本信息 -->
-                                    <div class="version-info" @click="handleVersionClick" :class="{ clickable: hasUpdateAvailable || hasDownloadedUpdate }">
+                                    <div class="version-info flex align-center gap-5" @click="handleVersionClick" :class="{ clickable: hasUpdateAvailable || hasDownloadedUpdate }">
                                         <span class="version-text">v{{ appVersion }}</span>
                                         <!-- 更新提示箭头 -->
                                         <n-icon
@@ -140,27 +142,28 @@
                     </aside>
 
                     <!-- ==================== 主内容区域 ==================== -->
-                    <main class="main-content">
-                        <div class="content-wrapper">
+                    <main class="main-content flex-1 flex flex-col">
+                        <div class="content-wrapper flex-1 flex flex-col">
                             <!-- 主要内容标签页组件 -->
                             <HomeTabs :active-tab="activeTab" @save="handleCheckDeepSeekBalance" />
                         </div>
                     </main>
                 </div>
             </div>
-        </n-message-provider>
 
-        <!-- 更新模态框 -->
-        <UpdateModal
-            v-model:show="showUpdateModal"
-            :current-version="appVersion"
-            :version-info="latestVersionInfo"
-            :has-downloaded-update="hasDownloadedUpdate"
-            :downloaded-update-path="downloadedUpdatePath"
-            @cancel="handleUpdateCancel"
-            @install-completed="handleInstallCompleted"
-            @message="handleUpdateMessage"
-        />
+            <!-- 更新模态框 -->
+            <UpdateModal
+                v-model:show="showUpdateModal"
+                :current-version="appVersion"
+                :version-info="latestVersionInfo"
+                :has-downloaded-update="hasDownloadedUpdate"
+                :downloaded-update-path="downloadedUpdatePath"
+                @cancel="handleUpdateCancel"
+                @install-completed="handleInstallCompleted"
+                @message="handleUpdateMessage"
+            />
+            </n-dialog-provider>
+        </n-message-provider>
     </n-config-provider>
 </template>
 
@@ -168,7 +171,7 @@
 // ==================== 导入依赖 ====================
 
 // Naive UI 相关导入
-import { lightTheme, NConfigProvider, NMessageProvider, NIcon, createDiscreteApi } from "naive-ui";
+import { lightTheme, NConfigProvider, NMessageProvider, NDialogProvider, NIcon, createDiscreteApi } from "naive-ui";
 // 图标导入
 import { ArrowUpOutline, DownloadOutline } from "@vicons/ionicons5";
 // 组件导入
@@ -573,15 +576,11 @@ onMounted(async () => {
     background: #f8fafc;
     color: #1e293b;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
 }
 
 /* 主应用布局 */
 .app-layout {
-    flex: 1;
-    display: flex;
     height: calc(100vh - 40px); /* 减去标题栏高度 */
     overflow: hidden;
 }
@@ -591,8 +590,6 @@ onMounted(async () => {
     width: 280px;
     background: #ffffff;
     border-right: 1px solid #e2e8f0;
-    display: flex;
-    flex-direction: column;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
 
     .sidebar-header {
@@ -600,9 +597,6 @@ onMounted(async () => {
         border-bottom: 1px solid #f1f5f9;
 
         .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
             margin-bottom: 16px;
 
             .logo-icon {
@@ -610,9 +604,6 @@ onMounted(async () => {
                 height: 32px;
                 background: linear-gradient(135deg, #10b981, #059669);
                 border-radius: 8px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
                 color: white;
             }
 
@@ -633,12 +624,9 @@ onMounted(async () => {
     }
 
     .sidebar-nav {
-        flex: 1;
-        padding: 20px 0;
         overflow-y: auto;
 
         .nav-section {
-            margin-bottom: 32px;
 
             .nav-section-title {
                 font-size: 12px;
@@ -646,7 +634,7 @@ onMounted(async () => {
                 color: #64748b;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
-                padding: 0 20px 12px;
+                padding: 12px;
             }
 
             .nav-list {
@@ -655,9 +643,6 @@ onMounted(async () => {
                 padding: 0;
 
                 .nav-item {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
                     padding: 12px 20px;
                     margin: 0 12px;
                     border-radius: 8px;
@@ -696,9 +681,6 @@ onMounted(async () => {
         border-radius: 12px;
 
         .status-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
             margin-bottom: 12px;
 
             h3 {
@@ -727,9 +709,6 @@ onMounted(async () => {
 
         .status-content {
             .balance-info {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
                 margin-bottom: 8px;
 
                 .balance-label {
@@ -745,9 +724,6 @@ onMounted(async () => {
             }
 
             .version-info {
-                display: flex;
-                align-items: center;
-                gap: 6px;
                 cursor: default;
                 padding: 4px 8px;
                 border-radius: 4px;
@@ -779,9 +755,6 @@ onMounted(async () => {
             }
 
             .initializing-info {
-                display: flex;
-                align-items: center;
-                justify-content: center;
                 padding: 8px 0;
 
                 .initializing-text {
@@ -820,19 +793,13 @@ onMounted(async () => {
 
 /* 主内容区域 */
 .main-content {
-    flex: 1;
     background: #f8fafc;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
     min-height: 0; /* 重要：允许 flex 子元素正确收缩 */
 
     .content-wrapper {
-        flex: 1;
         padding: 24px;
         overflow-y: auto;
-        display: flex;
-        flex-direction: column;
         min-height: 0; /* 重要：允许内容正确滚动 */
 
         /* 自定义滚动条 */

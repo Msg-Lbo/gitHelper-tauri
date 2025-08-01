@@ -1,9 +1,9 @@
 <template>
-  <div class="report-list">
+  <div class="report-list flex-1 flex flex-col overflow-hidden">
     <!-- 报告列表头部 - 固定在顶部 -->
-    <div class="report-header">
+    <div class="report-header flex justify-between align-center">
       <h3 class="report-title">我的报告列表</h3>
-      <div class="report-actions">
+      <div class="report-actions flex gap-10">
         <n-button size="small" type="primary" @click="handleAddReport">
           新增
         </n-button>
@@ -14,9 +14,9 @@
     </div>
 
     <!-- 报告列表内容 -->
-    <div class="report-content">
+    <div class="report-content flex-1 overflow-y-auto">
       <!-- 加载状态 -->
-      <div v-if="loading && reportList.length === 0" class="loading-container">
+      <div v-if="loading && reportList.length === 0" class="loading-container flex align-center justify-center h-full">
         <n-spin size="large">
           <template #description>
             <span class="loading-text">正在加载报告数据...</span>
@@ -25,7 +25,7 @@
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="!loading && reportList.length === 0" class="empty-container">
+      <div v-else-if="!loading && reportList.length === 0" class="empty-container flex flex-col align-center justify-center h-full gap-15">
         <div class="empty-icon">📋</div>
         <div class="empty-text">暂无报告数据</div>
         <n-button size="small" type="primary" @click="handleRefresh">
@@ -41,12 +41,54 @@
           class="report-item"
         >
           <!-- 报告头部信息 -->
-          <div class="report-item-header">
-            <div class="report-meta">
+          <div class="report-item-header flex justify-between align-center">
+            <div class="report-meta flex gap-15">
               <span class="work-hours">{{ report.work }}h</span>
               <span class="create-time">{{ formatDate(report.createTime) }}</span>
             </div>
-            <div class="project-name">{{ report.projectName }}</div>
+            <div class="header-right flex align-center gap-10">
+              <div class="project-name">{{ report.projectName }}</div>
+              <!-- 操作按钮组 -->
+              <div class="action-buttons flex align-center gap-4">
+                <!-- 编辑按钮 -->
+                <n-button
+                  size="tiny"
+                  type="primary"
+                  secondary
+                  circle
+                  class="edit-btn"
+                  :title="`编辑日报 - ${formatDate(report.createTime)}`"
+                  @click="handleEditReport(report)"
+                >
+                  <template #icon>
+                    <n-icon><CreateOutline /></n-icon>
+                  </template>
+                </n-button>
+
+                <!-- 删除按钮 -->
+                <n-popconfirm
+                  @positive-click="handleDeleteReport(report.id)"
+                  negative-text="取消"
+                  positive-text="确认删除"
+                >
+                  <template #trigger>
+                    <n-button
+                      size="tiny"
+                      type="error"
+                      secondary
+                      circle
+                      class="delete-btn"
+                      :title="`删除日报 - ${formatDate(report.createTime)}`"
+                    >
+                      <template #icon>
+                        <n-icon><TrashOutline /></n-icon>
+                      </template>
+                    </n-button>
+                  </template>
+                  <span>确定要删除这条日报吗？</span>
+                </n-popconfirm>
+              </div>
+            </div>
           </div>
 
           <!-- 报告内容 -->
@@ -77,17 +119,43 @@
         />
       </div>
     </div>
+
+    <!-- 新增/编辑日报模态框 -->
+    <AddReportModal
+      v-model:show="showAddModal"
+      :project-info="projectInfo"
+      :edit-data="editingReport ? {
+        id: editingReport.id,
+        work: editingReport.work,
+        speed: parseInt(editingReport.speed),
+        remarks: editingReport.remarks,
+        workType: editingReport.workType,
+        overtimeType: editingReport.overtimeType,
+        speedPlan: editingReport.speedPlan,
+        tomorrowWorkPlan: '',  // ReportInfo中没有此字段，使用默认值
+        difficulty: editingReport.difficulty
+      } : undefined"
+      @success="handleAddSuccess"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, onUnmounted } from 'vue'
-import { NButton, NSpin, NPagination, useMessage } from 'naive-ui'
-import { getMyReportingList, type ReportInfo, type ReportListParams } from '../api/oa'
+import { ref, onMounted, watch, onUnmounted, computed } from 'vue'
+import { NButton, NSpin, NPagination, NIcon, NPopconfirm, useMessage } from 'naive-ui'
+import { TrashOutline, CreateOutline } from '@vicons/ionicons5'
+import { getMyReportingList, deleteReport, type ReportInfo, type ReportListParams } from '../api/oa'
+import AddReportModal from './AddReportModal.vue'
 
 // ==================== 组件属性 ====================
 interface Props {
   projectId: string  // 项目ID
+  projectName?: string  // 项目名称
+  projectStartTime?: string  // 项目开始时间
+  projectEndTime?: string  // 项目结束时间
+  projectTeamId?: string  // 项目团队ID
+  stage?: string  // 阶段ID
+  stageName?: string  // 阶段名称
 }
 
 const props = defineProps<Props>()
@@ -101,6 +169,25 @@ const reportList = ref<ReportInfo[]>([])
 const currentPage = ref(1)
 const pageSize = ref(10)
 const totalItems = ref(0)
+const showAddModal = ref(false)
+
+// 编辑相关状态
+const editingReport = ref<ReportInfo | null>(null)
+
+// 项目信息（用于新增日报）
+const projectInfo = computed(() => {
+  if (!props.projectId) return undefined
+
+  return {
+    id: props.projectId,
+    projectName: props.projectName || '',
+    projectStartTime: props.projectStartTime || '',
+    projectEndTime: props.projectEndTime || '',
+    projectTeamId: props.projectTeamId || '',
+    stage: props.stage || '',
+    stageName: props.stageName || ''
+  }
+})
 
 // 分页器前缀文本函数
 const paginationPrefix = (_info: any) => {
@@ -207,9 +294,19 @@ const handlePageChange = (page: number) => {
  * 处理新增报告
  */
 const handleAddReport = () => {
-  message.info('新增报告功能开发中...')
-  // TODO: 实现新增报告功能
-  console.log('点击新增报告按钮')
+  showAddModal.value = true
+}
+
+/**
+ * 处理新增/编辑成功
+ */
+const handleAddSuccess = () => {
+  // 清除编辑状态
+  editingReport.value = null
+
+  // 重新加载报告列表
+  currentPage.value = 1
+  loadReportList()
 }
 
 /**
@@ -218,6 +315,50 @@ const handleAddReport = () => {
 const handleRefresh = () => {
   currentPage.value = 1
   loadReportList()
+}
+
+/**
+ * 处理删除日报
+ * @param reportId 日报ID
+ */
+const handleDeleteReport = async (reportId: string) => {
+  try {
+    loading.value = true
+
+    // 调用删除API
+    const response = await deleteReport(reportId)
+
+    if (response.code === 200) {
+      message.success(response.msg || '日报删除成功')
+
+      // 删除成功后重新加载列表
+      // 如果当前页没有数据了，回到上一页
+      if (reportList.value.length === 1 && currentPage.value > 1) {
+        currentPage.value = currentPage.value - 1
+      }
+
+      await loadReportList()
+    } else {
+      message.error(response.msg || '删除失败')
+    }
+  } catch (error: any) {
+    console.error('删除日报失败:', error)
+    message.error(error?.message || '删除失败，请重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * 处理编辑日报
+ * @param report 要编辑的日报数据
+ */
+const handleEditReport = (report: ReportInfo) => {
+  // 保存当前编辑的日报数据
+  editingReport.value = report
+
+  // 打开编辑模态框
+  showAddModal.value = true
 }
 
 // ==================== 生命周期 ====================
@@ -393,13 +534,50 @@ onUnmounted(() => {
       }
     }
 
-    .project-name {
-      font-size: 14px;
-      font-weight: 500;
-      color: #0f172a;
-      text-align: right;
-      max-width: 200px;
-      word-break: break-word;
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .project-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #0f172a;
+        text-align: right;
+        max-width: 200px;
+        word-break: break-word;
+      }
+
+      .action-buttons {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        .edit-btn,
+        .delete-btn {
+          opacity: 0;
+          transition: all 0.2s ease;
+
+          &:hover {
+            transform: scale(1.1);
+          }
+        }
+
+        .edit-btn {
+          // 编辑按钮的特殊样式
+          &:hover {
+            background-color: rgba(24, 160, 251, 0.1);
+          }
+        }
+      }
+    }
+  }
+
+  // 鼠标悬停时显示操作按钮
+  &:hover .header-right .action-buttons {
+    .edit-btn,
+    .delete-btn {
+      opacity: 1;
     }
   }
 
