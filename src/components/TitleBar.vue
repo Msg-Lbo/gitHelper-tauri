@@ -1,8 +1,8 @@
 <template>
   <div class="title-bar flex justify-between align-center">
     <div class="left flex align-center gap-10">
-      <img src="/logo.png" class="logo" alt="Git Helper" />
-      <span class="title">Git Helper</span>
+      <img src="/logo.png" class="logo" alt="workHelper" />
+      <span class="title">workHelper</span>
     </div>
     <div class="right flex align-center">
       <button class="bar-btn minimize" @click="handleMinimize" title="最小化">

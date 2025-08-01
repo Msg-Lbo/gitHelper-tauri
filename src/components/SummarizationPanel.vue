@@ -23,7 +23,7 @@
       <div class="content-card flex-1 flex flex-col overflow-hidden">
         <div class="content-header flex justify-between align-center">
           <h3 class="content-title">生成结果</h3>
-          <div class="content-status" :class="{ loading: loading }">
+          <div class="content-status flex align-center gap-8" :class="{ loading: loading }">
             <span v-if="loading" class="status-text">生成中...</span>
             <span v-else class="status-text">就绪</span>
           </div>
@@ -95,7 +95,7 @@
 <script setup lang="ts">
 import { ref, nextTick, watchEffect } from "vue";
 import { useMessage, useDialog } from "naive-ui";
-import { chatWithDeepSeek } from "../api/deepseek";
+import { chatWithDeepSeekStream } from "../api/deepseek";
 import { invoke } from "@tauri-apps/api/core";
 
 // 定义组件事件
@@ -274,7 +274,7 @@ const handleSummarizeDeepSeek = async () => {
         const settings = getSettings();
         const token = settings.token || "";
         if (!token) {
-            message.error("请先配置 DeepSeek 的 API Key");
+            message.error("请先配置 DeepSeek 的 API Token");
             return;
         }
         const messages = [{ role: "user", content: logRef.value }];
@@ -287,19 +287,12 @@ const handleSummarizeDeepSeek = async () => {
         }
         // 先在日志最后一行添加分割线
         logRef.value += "\n--------------------\n";
-        // 调用 DeepSeek API 进行总结（非流式）
+        // 调用 DeepSeek API 进行总结（流式）
         logRef.value += "正在调用 DeepSeek API...\n";
-        const response = await chatWithDeepSeek(messages, token, "deepseek-chat", false);
 
-        // 处理非流式响应
-        if (response && response.choices && response.choices[0] && response.choices[0].message) {
-            const deepseekText = response.choices[0].message.content;
-            logRef.value = logRef.value.replace(/(--------------------\n)[\s\S]*$/, `$1${deepseekText}`);
-            await nextTick();
-            scrollToBottom();
-        } else {
-            throw new Error("DeepSeek API 响应格式错误");
-        }
+        // 使用流式调用
+        await handleStreamResponse(messages, token, "deepseek-chat");
+
         // deepseek 输出完成后显示复制按钮和提交确认
         await nextTick();
         showCopyButton.value = true;
@@ -311,6 +304,35 @@ const handleSummarizeDeepSeek = async () => {
     } catch (error) {
         console.error("DeepSeek 总结失败:", error);
         message.error("DeepSeek 总结失败");
+    }
+};
+
+// 处理流式响应
+const handleStreamResponse = async (messages: any[], token: string, model: string) => {
+    try {
+        // 清除"正在调用 DeepSeek API..."提示
+        logRef.value = logRef.value.replace(/正在调用 DeepSeek API\.\.\.\n$/, "");
+
+        // 用于累积接收到的文本
+        let accumulatedText = "";
+
+        // 调用流式 DeepSeek API
+        await chatWithDeepSeekStream(messages, token, model, (chunk: string) => {
+            // 累积文本
+            accumulatedText += chunk;
+
+            // 更新显示
+            logRef.value = logRef.value.replace(/(--------------------\n)[\s\S]*$/, `$1${accumulatedText}`);
+
+            // 滚动到底部
+            nextTick().then(() => {
+                scrollToBottom();
+            });
+        });
+
+    } catch (error) {
+        console.error("流式响应处理失败:", error);
+        throw error;
     }
 };
 
@@ -524,6 +546,7 @@ watchEffect(() => {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
+      padding-right: 8px; /* 给滚动条留出空间 */
 
       &.loading {
         background: #f0fdf4;
@@ -531,7 +554,7 @@ watchEffect(() => {
       }
 
       .log-content {
-        padding: 16px;
+        padding: 16px 8px 16px 16px; /* 右边距减少，为滚动条留空间 */
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 13px;
         line-height: 1.6;
@@ -725,6 +748,40 @@ watchEffect(() => {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* 滚动条样式 */
+.log-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.log-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+.log-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.log-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.log-container::-webkit-scrollbar-thumb:active {
+  background: #64748b;
+}
+
+/* 加载状态下的滚动条样式 */
+.log-container.loading::-webkit-scrollbar-thumb {
+  background: #a7f3d0;
+}
+
+.log-container.loading::-webkit-scrollbar-thumb:hover {
+  background: #6ee7b7;
 }
 
 

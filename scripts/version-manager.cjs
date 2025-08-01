@@ -513,7 +513,7 @@ class VersionManager {
       console.log(`🏷️ 创建标签: v${version}`);
       
       // 提交版本更改
-      await this.git.add(['package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml']);
+      await this.git.add(['package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml' ,'src-tauri/Cargo.lock']);
       await this.git.commit(`chore: bump version to ${version}`);
       
       // 创建标签
