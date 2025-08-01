@@ -131,6 +131,8 @@
           <p class="copyright-text">Copyright © 2024 Msg-Lbo. All rights reserved.</p>
         </div>
       </div>
+
+
     </div>
   </div>
 </template>
@@ -168,6 +170,8 @@ const loadVersionInfo = async () => {
     currentVersion.value = '0.0.1';
   }
 };
+
+
 
 
 
@@ -455,6 +459,8 @@ const loadVersionInfo = async () => {
     margin: 0;
   }
 }
+
+
 
 // 闪电特效样式
 .lightning-effects {

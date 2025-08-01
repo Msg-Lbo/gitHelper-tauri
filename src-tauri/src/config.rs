@@ -118,18 +118,37 @@ pub fn save_config(config: &AppConfig) -> Result<(), String> {
 pub fn load_webdav_from_env() -> Option<WebDAVConfig> {
     use std::env;
 
-    // 首先尝试加载 .env 文件
-    if let Err(e) = dotenv::dotenv() {
-        log::debug!("无法加载 .env 文件: {}", e);
-    } else {
-        log::info!("成功加载 .env 文件");
+    // 在开发模式下尝试加载 .env 文件
+    #[cfg(debug_assertions)]
+    {
+        if let Err(e) = dotenv::dotenv() {
+            log::debug!("无法加载 .env 文件: {}", e);
+        } else {
+            log::info!("成功加载 .env 文件");
+        }
     }
 
-    let url = env::var("WEBDAV_URL").ok()?;
-    let username = env::var("WEBDAV_USERNAME").ok()?;
-    let password = env::var("WEBDAV_PASSWORD").ok()?;
-    let remote_path = env::var("WEBDAV_REMOTE_PATH").unwrap_or("/releases".to_string());
-    let base_url = env::var("WEBDAV_BASE_URL").ok()?;
+    // 优先使用构建时的环境变量（通过 env! 宏在编译时获取）
+    let url = option_env!("WEBDAV_URL")
+        .map(|s| s.to_string())
+        .or_else(|| env::var("WEBDAV_URL").ok())?;
+
+    let username = option_env!("WEBDAV_USERNAME")
+        .map(|s| s.to_string())
+        .or_else(|| env::var("WEBDAV_USERNAME").ok())?;
+
+    let password = option_env!("WEBDAV_PASSWORD")
+        .map(|s| s.to_string())
+        .or_else(|| env::var("WEBDAV_PASSWORD").ok())?;
+
+    let remote_path = option_env!("WEBDAV_REMOTE_PATH")
+        .map(|s| s.to_string())
+        .or_else(|| env::var("WEBDAV_REMOTE_PATH").ok())
+        .unwrap_or_else(|| "/releases".to_string());
+
+    let base_url = option_env!("WEBDAV_BASE_URL")
+        .map(|s| s.to_string())
+        .or_else(|| env::var("WEBDAV_BASE_URL").ok())?;
 
     log::info!("从环境变量加载WebDAV配置: url={}, username={}, remote_path={}, base_url={}",
                url, username, remote_path, base_url);

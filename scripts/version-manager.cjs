@@ -231,7 +231,13 @@ class VersionManager {
   async buildApp() {
     console.log('🔨 开始构建应用...');
     try {
-      execSync(CONFIG.build.command, { stdio: 'inherit' });
+      // 加载环境变量到构建进程
+      this.loadEnvForBuild();
+
+      execSync(CONFIG.build.command, {
+        stdio: 'inherit',
+        env: { ...process.env } // 确保环境变量传递给子进程
+      });
       console.log('✅ 构建命令执行完成');
 
       // 等待构建文件生成
@@ -244,6 +250,47 @@ class VersionManager {
       console.error('❌ 构建失败:', error.message);
       return false;
     }
+  }
+
+  // 加载环境变量用于构建
+  loadEnvForBuild() {
+    const envPath = path.join(process.cwd(), '.env');
+
+    if (!fs.existsSync(envPath)) {
+      console.warn('⚠️ .env 文件不存在，跳过环境变量加载');
+      return;
+    }
+
+    console.log('📄 加载环境变量...');
+    const envContent = fs.readFileSync(envPath, 'utf8');
+
+    envContent.split('\n').forEach(line => {
+      line = line.trim();
+      if (line && !line.startsWith('#')) {
+        const [key, ...valueParts] = line.split('=');
+        if (key && valueParts.length > 0) {
+          let value = valueParts.join('=').replace(/^["']|["']$/g, '');
+          // 移除行内注释（# 后面的内容）
+          const commentIndex = value.indexOf('#');
+          if (commentIndex > 0) {
+            value = value.substring(0, commentIndex).trim();
+          }
+          process.env[key.trim()] = value;
+        }
+      }
+    });
+
+    // 检查必要的环境变量
+    const requiredVars = ['WEBDAV_URL', 'WEBDAV_USERNAME', 'WEBDAV_PASSWORD', 'WEBDAV_BASE_URL'];
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+
+    if (missingVars.length > 0) {
+      console.error('❌ 缺少必要的环境变量:', missingVars.join(', '));
+      console.error('请在 .env 文件中设置这些变量');
+      throw new Error('环境变量配置不完整');
+    }
+
+    console.log('✅ 环境变量加载完成');
   }
 
   // 等待构建文件生成
@@ -788,6 +835,21 @@ if (require.main === module) {
     process.exit(0);
   }
 
+  // 仅构建命令
+  if (releaseType === 'build-only') {
+    const manager = new VersionManager();
+    manager.buildApp().then(success => {
+      if (success) {
+        console.log('🎉 构建完成！');
+        process.exit(0);
+      } else {
+        console.error('❌ 构建失败');
+        process.exit(1);
+      }
+    });
+    return;
+  }
+
   // 回滚命令
   if (releaseType === 'rollback') {
     const manager = new VersionManager();
@@ -803,6 +865,9 @@ if (require.main === module) {
     console.log('  node scripts/version-manager.cjs minor     # 提升次要版本 (0.1.0)');
     console.log('  node scripts/version-manager.cjs major     # 提升主要版本 (1.0.0)');
     console.log('');
+    console.log('🔨 构建命令:');
+    console.log('  node scripts/version-manager.cjs build-only # 仅构建应用（加载环境变量）');
+    console.log('');
     console.log('🔄 版本回滚命令:');
     console.log('  node scripts/version-manager.cjs rollback  # 回滚上一次版本发布');
     console.log('');
@@ -811,9 +876,7 @@ if (require.main === module) {
     console.log('  pnpm run release:minor');
     console.log('  pnpm run release:major');
     console.log('  pnpm run release:rollback');
-    console.log('');
-    console.log('🔧 测试环境变量:');
-    console.log('  node scripts/version-manager.cjs --test-env');
+    console.log('  pnpm run tauri:build:env    # 仅构建（推荐）');
     process.exit(1);
   }
 
