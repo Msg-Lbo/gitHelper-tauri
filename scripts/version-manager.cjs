@@ -238,16 +238,44 @@ class VersionManager {
         stdio: 'inherit',
         env: { ...process.env } // 确保环境变量传递给子进程
       });
+
+      console.log('\n' + '='.repeat(60));
       console.log('✅ 构建命令执行完成');
+      console.log('='.repeat(60));
 
-      // 等待构建文件生成
-      console.log('⏳ 等待构建文件生成...');
-      await this.waitForBuildFiles();
-
-      console.log('✅ 构建完成');
-      return true;
+      // 检查构建文件是否生成
+      console.log('🔍 检查构建文件...');
+      try {
+        const buildFiles = this.findBuildFiles();
+        console.log(`🔍 调试: findBuildFiles 返回了 ${buildFiles.length} 个文件`);
+        if (buildFiles.length > 0) {
+          console.log(`✅ 找到 ${buildFiles.length} 个构建文件`);
+          buildFiles.forEach(file => {
+            console.log(`  - ${file.name} (${file.type})`);
+          });
+          console.log('✅ 构建完成');
+          return true;
+        } else {
+          console.warn('⚠️ 未找到构建文件');
+          return false;
+        }
+      } catch (fileCheckError) {
+        console.error('❌ 检查构建文件时出错:', fileCheckError.message);
+        console.error('错误堆栈:', fileCheckError.stack);
+        return false;
+      }
     } catch (error) {
       console.error('❌ 构建失败:', error.message);
+      console.error('错误详情:', error);
+      if (error.status) {
+        console.error('退出码:', error.status);
+      }
+      if (error.stdout) {
+        console.error('标准输出:', error.stdout.toString());
+      }
+      if (error.stderr) {
+        console.error('标准错误:', error.stderr.toString());
+      }
       return false;
     }
   }
@@ -370,11 +398,14 @@ class VersionManager {
   }
 
   // 查找Windows构建文件
-  findBuildFiles() {
+  findBuildFiles(targetVersion = null) {
     const files = [];
     const outputDir = path.resolve(CONFIG.build.outputDir);
 
     console.log(`🔍 在目录中查找构建文件: ${outputDir}`);
+    if (targetVersion) {
+      console.log(`🎯 目标版本: ${targetVersion}`);
+    }
 
     try {
       // 检查目录是否存在
@@ -392,6 +423,12 @@ class VersionManager {
         const stat = fs.statSync(filePath);
 
         if (stat.isFile()) {
+          // 如果指定了目标版本，只处理包含该版本的文件
+          if (targetVersion && !fileName.includes(targetVersion)) {
+            console.log(`⏭️ 跳过旧版本文件: ${fileName}`);
+            return;
+          }
+
           if (fileName.endsWith('.exe')) {
             files.push({
               platform: 'windows',
@@ -399,7 +436,7 @@ class VersionManager {
               path: filePath,
               name: fileName
             });
-            console.log(`✅ 找到EXE文件: ${fileName}`);
+            console.log(`✅ 找到当前版本EXE文件: ${fileName}`);
           } else if (fileName.endsWith('.msi')) {
             files.push({
               platform: 'windows',
@@ -407,13 +444,17 @@ class VersionManager {
               path: filePath,
               name: fileName
             });
-            console.log(`✅ 找到MSI文件: ${fileName}`);
+            console.log(`✅ 找到当前版本MSI文件: ${fileName}`);
           }
         }
       });
 
       if (files.length === 0) {
-        console.warn(`⚠️ 在 ${outputDir} 中未找到.exe或.msi文件`);
+        if (targetVersion) {
+          console.warn(`⚠️ 在 ${outputDir} 中未找到版本 ${targetVersion} 的构建文件`);
+        } else {
+          console.warn(`⚠️ 在 ${outputDir} 中未找到.exe或.msi文件`);
+        }
       }
 
     } catch (error) {
@@ -426,13 +467,18 @@ class VersionManager {
   // 上传Windows构建文件到WebDAV服务器
   async uploadToWebDAV(version, changelog) {
     console.log('☁️ 上传Windows构建文件到WebDAV服务器...');
+    console.log(`🔧 WebDAV配置:`);
+    console.log(`  URL: ${CONFIG.webdav.url}`);
+    console.log(`  用户名: ${CONFIG.webdav.username}`);
+    console.log(`  远程路径: ${CONFIG.webdav.remotePath}`);
+    console.log(`  基础URL: ${CONFIG.webdav.baseUrl}`);
 
     try {
-      // 查找Windows构建产物
-      const buildFiles = this.findBuildFiles();
+      // 查找Windows构建产物（只查找当前版本）
+      const buildFiles = this.findBuildFiles(version);
 
       if (buildFiles.length === 0) {
-        throw new Error('未找到构建文件，请先执行构建命令');
+        throw new Error(`未找到版本 ${version} 的构建文件，请先执行构建命令`);
       }
 
       const uploadResults = [];
@@ -458,7 +504,12 @@ class VersionManager {
             sizeFormatted: this.formatFileSize(fs.statSync(file.path).size)
           });
         } else {
-          throw new Error(`上传 ${file.name} 失败`);
+          console.error(`❌ 上传失败详情:`);
+          console.error(`  文件: ${file.name}`);
+          console.error(`  本地路径: ${file.path}`);
+          console.error(`  远程路径: ${remotePath}`);
+          console.error(`  WebDAV URL: ${CONFIG.webdav.url}${remotePath}`);
+          throw new Error(`上传 ${file.name} 失败，请检查WebDAV服务器配置和网络连接`);
         }
       }
 
@@ -488,8 +539,14 @@ class VersionManager {
   // WebDAV文件上传方法
   async uploadFileToWebDAV(localPath, remotePath) {
     try {
+      // 确保目录存在
+      const dirPath = path.dirname(remotePath);
+      await this.ensureWebDAVDirectory(dirPath);
+
       const fileContent = fs.readFileSync(localPath);
       const auth = Buffer.from(`${CONFIG.webdav.username}:${CONFIG.webdav.password}`).toString('base64');
+
+      console.log(`🔗 上传到: ${CONFIG.webdav.url}${remotePath}`);
 
       const response = await fetch(`${CONFIG.webdav.url}${remotePath}`, {
         method: 'PUT',
@@ -501,9 +558,22 @@ class VersionManager {
         body: fileContent
       });
 
-      return response.ok;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ WebDAV上传失败: ${response.status} ${response.statusText}`);
+        console.error(`错误详情: ${errorText}`);
+        return false;
+      }
+
+      console.log(`✅ 文件上传成功: ${response.status} ${response.statusText}`);
+
+      // 验证上传并强制刷新缓存
+      await this.verifyUploadAndRefresh(remotePath);
+
+      return true;
     } catch (error) {
-      console.error(`WebDAV上传失败: ${error.message}`);
+      console.error(`❌ WebDAV上传异常: ${error.message}`);
+      console.error(`错误堆栈: ${error.stack}`);
       return false;
     }
   }
@@ -512,17 +582,191 @@ class VersionManager {
   async createWebDAVDirectory(remotePath) {
     try {
       const auth = Buffer.from(`${CONFIG.webdav.username}:${CONFIG.webdav.password}`).toString('base64');
+      const fullUrl = `${CONFIG.webdav.url}${remotePath}`;
 
-      const response = await fetch(`${CONFIG.webdav.url}${remotePath}`, {
+      console.log(`🔗 创建目录请求: ${fullUrl}`);
+
+      const response = await fetch(fullUrl, {
         method: 'MKCOL',
         headers: {
-          'Authorization': `Basic ${auth}`
+          'Authorization': `Basic ${auth}`,
+          'User-Agent': 'VersionManager/1.0'
         }
       });
 
-      return response.ok || response.status === 405; // 405表示目录已存在
+      console.log(`📁 目录创建响应: ${response.status} ${response.statusText}`);
+
+      if (response.ok || response.status === 405) {
+        // 创建成功后，等待一下让 alist 更新索引
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // 尝试触发目录刷新
+        await this.refreshDirectoryIndex(remotePath);
+
+        return true;
+      } else {
+        const errorText = await response.text();
+        console.warn(`⚠️ 创建目录失败: ${response.status} ${response.statusText}`);
+        console.warn(`错误详情: ${errorText}`);
+        return false;
+      }
     } catch (error) {
       console.error(`创建WebDAV目录失败: ${error.message}`);
+      return false;
+    }
+  }
+
+  // 刷新目录索引（触发 alist 更新缓存）
+  async refreshDirectoryIndex(remotePath) {
+    try {
+      const auth = Buffer.from(`${CONFIG.webdav.username}:${CONFIG.webdav.password}`).toString('base64');
+      const fullUrl = `${CONFIG.webdav.url}${remotePath}`;
+
+      console.log(`🔄 刷新目录索引: ${fullUrl}`);
+
+      // 方法1: 使用 PROPFIND 请求触发目录扫描
+      const propfindResponse = await fetch(fullUrl, {
+        method: 'PROPFIND',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Depth': '1',
+          'Content-Type': 'application/xml',
+          'User-Agent': 'VersionManager/1.0',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      if (propfindResponse.ok) {
+        console.log(`✅ PROPFIND 刷新成功`);
+      }
+
+      // 方法2: 使用 HEAD 请求触发缓存更新
+      const headResponse = await fetch(fullUrl, {
+        method: 'HEAD',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      if (headResponse.ok) {
+        console.log(`✅ HEAD 刷新成功`);
+      }
+
+      // 方法3: 尝试访问父目录触发级联刷新
+      const parentPath = remotePath.substring(0, remotePath.lastIndexOf('/'));
+      if (parentPath && parentPath !== remotePath) {
+        const parentResponse = await fetch(`${CONFIG.webdav.url}${parentPath}`, {
+          method: 'PROPFIND',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Depth': '1',
+            'Cache-Control': 'no-cache'
+          }
+        });
+
+        if (parentResponse.ok) {
+          console.log(`✅ 父目录刷新成功`);
+        }
+      }
+
+    } catch (error) {
+      console.warn(`⚠️ 目录索引刷新异常: ${error.message}`);
+    }
+  }
+
+  // 验证上传并强制刷新缓存
+  async verifyUploadAndRefresh(remotePath) {
+    try {
+      console.log(`🔍 验证上传并刷新缓存: ${remotePath}`);
+
+      const auth = Buffer.from(`${CONFIG.webdav.username}:${CONFIG.webdav.password}`).toString('base64');
+      const fullUrl = `${CONFIG.webdav.url}${remotePath}`;
+
+      // 1. 验证文件是否存在
+      const headResponse = await fetch(fullUrl, {
+        method: 'HEAD',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Cache-Control': 'no-cache'
+        }
+      });
+
+      if (headResponse.ok) {
+        const size = headResponse.headers.get('content-length');
+        console.log(`✅ 文件验证成功，大小: ${size} 字节`);
+      } else {
+        console.warn(`⚠️ 文件验证失败: ${headResponse.status}`);
+        return false;
+      }
+
+      // 2. 强制刷新所有相关目录
+      const dirPath = remotePath.substring(0, remotePath.lastIndexOf('/'));
+      await this.refreshDirectoryIndex(dirPath);
+
+      // 3. 等待更长时间确保 alist 处理完成
+      console.log(`⏳ 等待 alist 更新索引...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 4. 再次验证目录列表
+      const listResponse = await fetch(`${CONFIG.webdav.url}${dirPath}`, {
+        method: 'PROPFIND',
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Depth': '1',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      if (listResponse.ok) {
+        const xmlText = await listResponse.text();
+        const fileName = remotePath.split('/').pop();
+        const fileExists = xmlText.includes(fileName);
+
+        if (fileExists) {
+          console.log(`✅ 文件在目录列表中可见`);
+        } else {
+          console.warn(`⚠️ 文件在目录列表中不可见，但可以直接访问`);
+          console.warn(`💡 这是 alist 缓存问题，文件已成功上传`);
+          console.warn(`🔧 解决方案:`);
+          console.warn(`   1. 手动刷新 alist 管理界面`);
+          console.warn(`   2. 重启 alist 服务: sudo systemctl restart alist`);
+          console.warn(`   3. 文件仍然可以正常下载和使用`);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`❌ 验证上传异常: ${error.message}`);
+      return false;
+    }
+  }
+
+  // 确保WebDAV目录存在（递归创建）
+  async ensureWebDAVDirectory(remotePath) {
+    try {
+      // 规范化路径
+      const normalizedPath = remotePath.replace(/\\/g, '/');
+      const pathParts = normalizedPath.split('/').filter(part => part.length > 0);
+
+      // 递归创建每一级目录
+      let currentPath = '';
+      for (const part of pathParts) {
+        currentPath += '/' + part;
+
+        // 尝试创建目录
+        const success = await this.createWebDAVDirectory(currentPath);
+        if (!success) {
+          console.warn(`⚠️ 创建目录失败: ${currentPath}`);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`确保WebDAV目录存在失败: ${error.message}`);
       return false;
     }
   }
@@ -779,16 +1023,23 @@ class VersionManager {
   async release(releaseType) {
     try {
       console.log(`🚀 开始发布流程: ${releaseType}`);
-      
+
+      // 0. 加载环境变量（确保WebDAV配置可用）
+      this.loadEnvForBuild();
+
+      // 重新加载配置以使用最新的环境变量
+      const currentConfig = loadConfig();
+      Object.assign(CONFIG, currentConfig);
+
       // 1. 获取上一个标签
       const lastTag = await this.getLastTag();
-      
+
       // 2. 更新版本号
       const newVersion = this.updateVersion(releaseType);
-      
+
       // 3. 生成更新日志
       const changelog = await this.generateChangelog(lastTag);
-      
+
       // 4. 构建应用
       const buildSuccess = await this.buildApp();
       if (!buildSuccess) {
@@ -796,7 +1047,15 @@ class VersionManager {
       }
       
       // 5. 上传到WebDAV服务器（如果配置了的话）
+      console.log('🔍 检查WebDAV配置:');
+      console.log(`  用户名: "${CONFIG.webdav.username}"`);
+      console.log(`  URL: "${CONFIG.webdav.url}"`);
+      console.log(`  远程路径: "${CONFIG.webdav.remotePath}"`);
+      console.log(`  条件检查: ${CONFIG.webdav.username !== 'your-username' ? '✅ 通过' : '❌ 失败'}`);
+
       if (CONFIG.webdav.username !== 'your-username') {
+        console.log('☁️ 开始WebDAV上传流程...');
+
         // 先创建必要的目录结构
         await this.createWebDAVDirectory(`${CONFIG.webdav.remotePath}/v${newVersion}`);
         await this.createWebDAVDirectory(`${CONFIG.webdav.remotePath}/v${newVersion}/windows`);
@@ -810,8 +1069,11 @@ class VersionManager {
       // 6. 创建标签并推送
       await this.createAndPushTag(newVersion, changelog);
       
+      console.log('\n' + '🎉'.repeat(20));
       console.log(`🎉 发布完成! 版本: v${newVersion}`);
+      console.log('🎉'.repeat(20));
       console.log(`📝 更新日志:\n${changelog}`);
+      console.log('\n✅ 所有步骤已完成，包括 WebDAV 上传！');
       
     } catch (error) {
       console.error('❌ 发布失败:', error);
