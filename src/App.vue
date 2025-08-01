@@ -96,6 +96,15 @@
                                             <div class="nav-icon">⚙️</div>
                                             <span class="nav-text">基础设置</span>
                                         </li>
+                                        <!-- 关于页面 -->
+                                        <li
+                                            class="nav-item flex align-center gap-15"
+                                            :class="{ active: activeTab === 'about' }"
+                                            @click="setActiveTab('about')"
+                                        >
+                                            <div class="nav-icon">ℹ️</div>
+                                            <span class="nav-text">关于</span>
+                                        </li>
                                     </ul>
                                 </div>
                             </nav>
@@ -137,8 +146,12 @@
                                             :class="{ clickable: hasUpdateAvailable || hasDownloadedUpdate }"
                                         >
                                             <span class="version-text">v{{ appVersion }}</span>
+                                            <!-- 检查更新中的加载指示器 -->
+                                            <n-icon v-if="isCheckingUpdate" size="16" class="checking-indicator spinning" color="#666">
+                                                <RefreshOutline />
+                                            </n-icon>
                                             <!-- 更新提示箭头 -->
-                                            <n-icon v-if="hasUpdateAvailable" size="16" class="update-indicator" color="#18a058">
+                                            <n-icon v-else-if="hasUpdateAvailable" size="16" class="update-indicator" color="#18a058">
                                                 <ArrowUpOutline />
                                             </n-icon>
                                             <!-- 已下载更新提示 -->
@@ -183,7 +196,7 @@
 // Naive UI 相关导入
 import { lightTheme, NConfigProvider, NMessageProvider, NDialogProvider, NIcon, createDiscreteApi } from "naive-ui";
 // 图标导入
-import { ArrowUpOutline, DownloadOutline } from "@vicons/ionicons5";
+import { ArrowUpOutline, DownloadOutline, RefreshOutline } from "@vicons/ionicons5";
 // 组件导入
 import TitleBar from "./components/TitleBar.vue";
 import HomeTabs from "./components/HomeTabs.vue";
@@ -234,6 +247,7 @@ const latestVersionInfo = ref<any>(null);
 const downloadedUpdatePath = ref<string>("");
 const showUpdateModal = ref(false);
 const updateCheckCompleted = ref(false);
+const isCheckingUpdate = ref(false);
 
 // 创建消息提示实例
 const { message } = createDiscreteApi(["message"], {
@@ -294,8 +308,15 @@ const loadUpdateAPI = async () => {
 /**
  * 检查更新
  */
-const checkForAppUpdates = async () => {
+const checkForAppUpdates = async (showMessages = false) => {
+    // 防止重复检查
+    if (isCheckingUpdate.value) {
+        console.log("⚠️ 正在检查更新中，跳过重复请求");
+        return;
+    }
+
     try {
+        isCheckingUpdate.value = true;
         console.log("🔍 开始检查应用更新...");
 
         // 动态加载更新API
@@ -321,19 +342,32 @@ const checkForAppUpdates = async () => {
                 console.log("📦 已下载更新包:", downloadedPath);
             }
 
-            // 自动显示更新模态框
-            showUpdateModal.value = true;
+            // 如果是手动检查或者第一次启动检查，显示更新模态框
+            if (showMessages || !updateCheckCompleted.value) {
+                showUpdateModal.value = true;
+            }
         } else {
             console.log("✅ 当前已是最新版本");
             hasUpdateAvailable.value = false;
             latestVersionInfo.value = null;
+
+            // 如果是手动检查，显示成功消息
+            if (showMessages) {
+                message.success("当前已是最新版本！");
+            }
         }
 
         updateCheckCompleted.value = true;
     } catch (error) {
         console.error("❌ 检查更新失败:", error);
         updateCheckCompleted.value = true;
-        // 不显示错误消息，避免干扰用户体验
+
+        // 如果是手动检查，显示错误消息
+        if (showMessages) {
+            message.error("检查更新失败，请稍后重试");
+        }
+    } finally {
+        isCheckingUpdate.value = false;
     }
 };
 
@@ -341,23 +375,21 @@ const checkForAppUpdates = async () => {
  * 处理版本号点击事件
  */
 const handleVersionClick = async () => {
-    if (!updateCheckCompleted.value) {
+    // 如果正在检查更新，显示提示
+    if (isCheckingUpdate.value) {
         message.info("正在检查更新，请稍候...");
         return;
     }
 
+    // 如果有更新或已下载更新，显示更新模态框
     if (hasUpdateAvailable.value || hasDownloadedUpdate.value) {
-        // 如果有更新或已下载更新，显示更新模态框
         showUpdateModal.value = true;
-    } else {
-        // 手动检查更新
-        message.info("正在检查更新...");
-        await checkForAppUpdates();
-
-        if (!hasUpdateAvailable.value) {
-            message.success("当前已是最新版本！");
-        }
+        return;
     }
+
+    // 手动检查更新
+    message.info("正在检查更新...");
+    await checkForAppUpdates(true); // 传入 true 表示手动检查，会显示结果消息
 };
 
 /**
@@ -754,6 +786,10 @@ onMounted(async () => {
                     font-weight: 500;
                 }
 
+                .checking-indicator {
+                    animation: spin 1s linear infinite;
+                }
+
                 .update-indicator {
                     animation: bounce 1s infinite;
                 }
@@ -773,6 +809,16 @@ onMounted(async () => {
                 }
             }
         }
+    }
+}
+
+/* 旋转动画 */
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
     }
 }
 

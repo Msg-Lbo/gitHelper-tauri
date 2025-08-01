@@ -50,6 +50,12 @@
         </keep-alive>
       </div>
 
+      <!-- 关于 -->
+      <div v-else-if="activeTab === 'about'" class="panel-content flex-1 flex flex-col h-full overflow-hidden">
+        <keep-alive>
+          <AboutPage />
+        </keep-alive>
+      </div>
 
     </div>
 
@@ -92,6 +98,7 @@ import SummarizationPanel from './SummarizationPanel.vue'
 import OASystem from './OASystem.vue'
 import AddReportModal from './AddReportModal.vue'
 import OAProjectSelector from './OAProjectSelector.vue'
+import AboutPage from './AboutPage.vue'
 
 // 接收父组件传递的激活标签
 const { activeTab } = defineProps<{
