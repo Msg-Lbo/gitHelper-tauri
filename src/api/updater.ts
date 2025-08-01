@@ -13,7 +13,7 @@ import { invoke } from '@tauri-apps/api/core';
 export interface VersionInfo {
   version: string;           // 版本号，如 "1.0.1"
   releaseDate: string;       // 发布日期
-  changelog: string[];       // 更新日志列表
+  changelog: string;         // 更新日志内容
   downloadUrl: string;       // 下载链接
   fileSize: number;          // 文件大小（字节）
   fileSizeFormatted: string; // 格式化的文件大小，如 "25.6 MB"

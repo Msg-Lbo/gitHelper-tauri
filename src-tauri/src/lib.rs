@@ -17,7 +17,7 @@ use config::get_webdav_config;
 pub struct VersionInfo {
     pub version: String,
     pub release_date: String,
-    pub changelog: Vec<String>,
+    pub changelog: String,
     pub download_url: String,
     pub file_size: u64,
     pub file_size_formatted: String,
@@ -277,14 +277,9 @@ async fn fetch_latest_version_info() -> Result<VersionInfo, String> {
         .to_string();
 
     let changelog = version_data["changelog"]
-        .as_array()
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str())
-                .map(|s| s.to_string())
-                .collect()
-        })
-        .unwrap_or_default();
+        .as_str()
+        .unwrap_or("本次更新无代码变更")
+        .to_string();
 
     // 构建Windows平台的下载URL
     let download_url = format!(

@@ -41,17 +41,13 @@
       </div>
 
       <!-- 更新日志区域 -->
-      <div class="changelog-section" v-if="versionInfo?.changelog?.length">
+      <div class="changelog-section" v-if="versionInfo?.changelog">
         <h4 class="changelog-title flex align-center gap-10">
           <n-icon size="18"><DocumentTextOutline /></n-icon>
           更新内容
         </h4>
         <div class="changelog-content">
-          <ul class="changelog-list">
-            <li v-for="(item, index) in versionInfo.changelog" :key="index" class="changelog-item">
-              {{ item }}
-            </li>
-          </ul>
+          <div class="changelog-text" v-html="formatChangelog(versionInfo.changelog)"></div>
         </div>
       </div>
 
@@ -251,6 +247,23 @@ function formatDate(dateString: string): string {
   } catch {
     return dateString;
   }
+}
+
+// ==================== 工具函数 ====================
+
+/**
+ * 格式化更新日志
+ * 将 Markdown 格式的字符串转换为 HTML
+ */
+function formatChangelog(changelog: string): string {
+  if (!changelog) return '';
+
+  return changelog
+    .replace(/\n/g, '<br>')
+    .replace(/## (.*)/g, '<h4>$1</h4>')
+    .replace(/- (.*)/g, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
+    .replace(/<\/ul>\s*<ul>/g, ''); // 合并连续的 ul 标签
 }
 
 // ==================== 事件处理函数 ====================
@@ -458,20 +471,30 @@ async function handleInstall() {
   border-left: 3px solid #18a058;
 }
 
-.changelog-list {
-  margin: 0;
-  padding-left: 20px;
-  list-style-type: disc;
-}
-
-.changelog-item {
-  margin-bottom: 8px;
-  line-height: 1.5;
+.changelog-text {
+  line-height: 1.6;
   color: #555;
 }
 
-.changelog-item:last-child {
-  margin-bottom: 0;
+.changelog-text h4 {
+  margin: 12px 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.changelog-text h4:first-child {
+  margin-top: 0;
+}
+
+.changelog-text ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.changelog-text li {
+  margin-bottom: 4px;
+  line-height: 1.5;
 }
 
 /* 下载进度区域 */
