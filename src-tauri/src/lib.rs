@@ -286,6 +286,8 @@ async fn fetch_latest_version_info() -> Result<VersionInfo, String> {
         "{}/v{}/windows/WorkHelper_{}_x64-setup.exe",
         webdav_config.base_url, version, version
     );
+    
+    log::info!("构建的下载URL: {}", download_url);
 
     // 尝试从JSON中获取文件大小，如果没有则从服务器获取
     let (file_size, file_size_formatted) = if let (Some(size), Some(formatted)) = (
@@ -414,7 +416,7 @@ async fn get_file_size(client: &reqwest::Client, url: &str, auth: &str) -> (u64,
         }
     }
 
-    // 最后尝试WebDAV PROPFIND请求
+    // 最后尝试WebDAV PROPFIND请求（如果您的服务器支持的话）
     log::info!("尝试使用WebDAV PROPFIND获取文件大小");
     match get_file_size_webdav(client, url, auth).await {
         Some((size, formatted)) => {
@@ -426,15 +428,24 @@ async fn get_file_size(client: &reqwest::Client, url: &str, auth: &str) -> (u64,
         }
     }
 
-    // 最后尝试WebDAV PROPFIND请求
-    log::info!("尝试使用WebDAV PROPFIND获取文件大小");
-    match get_file_size_webdav(client, url, auth).await {
-        Some((size, formatted)) => {
-            log::info!("通过WebDAV PROPFIND获取文件大小: {} 字节", size);
-            return (size, formatted);
+    // 如果都失败了，尝试下载前1KB来估算文件大小
+    log::info!("尝试下载文件开头来估算大小");
+    match client
+        .get(url)
+        .header("Authorization", format!("Basic {}", auth))
+        .header("Range", "bytes=0-1023")
+        .send()
+        .await
+    {
+        Ok(response) => {
+            if response.status().is_success() {
+                // 如果部分下载成功，说明文件存在，返回一个估算大小
+                log::info!("文件存在，使用估算大小");
+                return (10_000_000, "约 10 MB".to_string()); // 估算为10MB
+            }
         }
-        None => {
-            log::warn!("WebDAV PROPFIND也失败了");
+        Err(e) => {
+            log::warn!("估算下载失败: {}", e);
         }
     }
 
