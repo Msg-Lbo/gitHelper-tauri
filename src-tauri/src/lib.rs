@@ -286,8 +286,6 @@ async fn fetch_latest_version_info() -> Result<VersionInfo, String> {
         "{}/v{}/windows/WorkHelper_{}_x64-setup.exe",
         webdav_config.base_url, version, version
     );
-    
-    log::info!("构建的下载URL: {}", download_url);
 
     // 尝试从JSON中获取文件大小，如果没有则从服务器获取
     let (file_size, file_size_formatted) = if let (Some(size), Some(formatted)) = (
@@ -347,110 +345,66 @@ fn is_newer_version(current: &str, latest: &str) -> bool {
 
 // 获取文件大小
 async fn get_file_size(client: &reqwest::Client, url: &str, auth: &str) -> (u64, String) {
-    log::info!("尝试获取文件大小: {}", url);
-
     // 首先尝试HEAD请求
-    match client
+    if let Ok(response) = client
         .head(url)
         .header("Authorization", format!("Basic {}", auth))
         .send()
         .await
     {
-        Ok(response) => {
-            log::info!("HEAD请求响应状态: {}", response.status());
-
-            if response.status().is_success() {
-                // 打印所有响应头用于调试
-                for (name, value) in response.headers().iter() {
-                    log::debug!("响应头: {} = {:?}", name, value);
-                }
-
-                if let Some(content_length) = response.headers().get("content-length") {
-                    if let Ok(content_length_str) = content_length.to_str() {
-                        if let Ok(size) = content_length_str.parse::<u64>() {
-                            log::info!("成功获取文件大小: {} 字节", size);
-                            return (size, format_file_size(size));
-                        }
+        if response.status().is_success() {
+            if let Some(content_length) = response.headers().get("content-length") {
+                if let Ok(content_length_str) = content_length.to_str() {
+                    if let Ok(size) = content_length_str.parse::<u64>() {
+                        return (size, format_file_size(size));
                     }
                 }
-
-                log::warn!("响应成功但没有Content-Length头");
-            } else {
-                log::warn!("HEAD请求失败: {}", response.status());
             }
-        }
-        Err(e) => {
-            log::warn!("HEAD请求失败: {}", e);
         }
     }
 
-    // 如果HEAD请求失败，尝试GET请求的前几个字节
-    log::info!("尝试使用Range请求获取文件大小");
-    match client
+    // 如果HEAD请求失败，尝试Range请求获取文件大小
+    if let Ok(response) = client
         .get(url)
         .header("Authorization", format!("Basic {}", auth))
         .header("Range", "bytes=0-0")
         .send()
         .await
     {
-        Ok(response) => {
-            log::info!("Range请求响应状态: {}", response.status());
-
-            if response.status().as_u16() == 206 { // Partial Content
-                if let Some(content_range) = response.headers().get("content-range") {
-                    if let Ok(range_str) = content_range.to_str() {
-                        log::info!("Content-Range: {}", range_str);
-                        // 解析 "bytes 0-0/12345" 格式
-                        if let Some(total_size_str) = range_str.split('/').nth(1) {
-                            if let Ok(size) = total_size_str.parse::<u64>() {
-                                log::info!("通过Range请求获取文件大小: {} 字节", size);
-                                return (size, format_file_size(size));
-                            }
+        if response.status().as_u16() == 206 { // Partial Content
+            if let Some(content_range) = response.headers().get("content-range") {
+                if let Ok(range_str) = content_range.to_str() {
+                    // 解析 "bytes 0-0/12345" 格式
+                    if let Some(total_size_str) = range_str.split('/').nth(1) {
+                        if let Ok(size) = total_size_str.parse::<u64>() {
+                            return (size, format_file_size(size));
                         }
                     }
                 }
             }
         }
-        Err(e) => {
-            log::warn!("Range请求失败: {}", e);
-        }
     }
 
-    // 最后尝试WebDAV PROPFIND请求（如果您的服务器支持的话）
-    log::info!("尝试使用WebDAV PROPFIND获取文件大小");
-    match get_file_size_webdav(client, url, auth).await {
-        Some((size, formatted)) => {
-            log::info!("通过WebDAV PROPFIND获取文件大小: {} 字节", size);
-            return (size, formatted);
-        }
-        None => {
-            log::warn!("WebDAV PROPFIND也失败了");
-        }
+    // 尝试WebDAV PROPFIND请求
+    if let Some((size, formatted)) = get_file_size_webdav(client, url, auth).await {
+        return (size, formatted);
     }
 
-    // 如果都失败了，尝试下载前1KB来估算文件大小
-    log::info!("尝试下载文件开头来估算大小");
-    match client
+    // 如果都失败了，尝试下载前1KB来验证文件存在
+    if let Ok(response) = client
         .get(url)
         .header("Authorization", format!("Basic {}", auth))
         .header("Range", "bytes=0-1023")
         .send()
         .await
     {
-        Ok(response) => {
-            if response.status().is_success() {
-                // 如果部分下载成功，说明文件存在，返回一个估算大小
-                log::info!("文件存在，使用估算大小");
-                return (10_000_000, "约 10 MB".to_string()); // 估算为10MB
-            }
-        }
-        Err(e) => {
-            log::warn!("估算下载失败: {}", e);
+        if response.status().is_success() {
+            // 如果部分下载成功，说明文件存在，返回估算大小
+            return (10_000_000, "约 10 MB".to_string());
         }
     }
 
     // 如果都失败了，返回默认值
-    log::warn!("无法获取文件大小，使用默认值");
     (0, "未知".to_string())
 }
 
@@ -475,8 +429,6 @@ async fn get_file_size_webdav(client: &reqwest::Client, url: &str, auth: &str) -
         Ok(response) => {
             if response.status().is_success() {
                 if let Ok(body) = response.text().await {
-                    log::debug!("WebDAV PROPFIND响应: {}", body);
-
                     // 简单的XML解析，查找getcontentlength
                     if let Some(start) = body.find("<D:getcontentlength>") {
                         if let Some(end) = body[start..].find("</D:getcontentlength>") {
@@ -497,13 +449,9 @@ async fn get_file_size_webdav(client: &reqwest::Client, url: &str, auth: &str) -
                         }
                     }
                 }
-            } else {
-                log::warn!("WebDAV PROPFIND请求失败: {}", response.status());
             }
         }
-        Err(e) => {
-            log::warn!("WebDAV PROPFIND请求错误: {}", e);
-        }
+        Err(_) => {}
     }
 
     None
@@ -542,7 +490,7 @@ async fn download_update(
     file_name: String,
     expected_size: u64,
 ) -> Result<DownloadResult, String> {
-    log::info!("开始下载更新包: {} -> {}", download_url, file_name);
+    log::info!("开始下载更新包: {}", file_name);
 
     // 获取下载目录
     let download_dir = get_updates_directory()?;
@@ -784,8 +732,6 @@ async fn http_request(
     headers: Option<std::collections::HashMap<String, String>>,
     body: Option<String>
 ) -> Result<String, String> {
-    log::info!("HTTP请求: {} {}", method, url);
-
     let client = reqwest::Client::new();
 
     // 构建请求
@@ -814,7 +760,6 @@ async fn http_request(
         Ok(response) => {
             match response.text().await {
                 Ok(text) => {
-                    log::info!("HTTP请求成功，响应长度: {}", text.len());
                     Ok(text)
                 }
                 Err(e) => {
@@ -835,8 +780,6 @@ async fn http_request(
 // Tauri 命令：关闭启动画面并显示主窗口
 #[tauri::command]
 async fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
-    log::info!("准备关闭启动画面并显示主窗口");
-
     // 先显示主窗口，确保无缝切换
     if let Some(main_window) = app.get_webview_window("main") {
         main_window.show().map_err(|e| {
@@ -849,8 +792,6 @@ async fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
             log::warn!("设置主窗口焦点失败: {}", e);
             e.to_string()
         })?;
-
-        log::info!("主窗口已显示并获得焦点");
     }
 
     // 稍微延迟后关闭启动画面，确保主窗口已完全显示
@@ -862,7 +803,7 @@ async fn close_splashscreen(app: tauri::AppHandle) -> Result<(), String> {
             log::error!("关闭启动画面失败: {}", e);
             e.to_string()
         })?;
-        log::info!("启动画面已关闭");
+
     }
 
     Ok(())
@@ -889,8 +830,7 @@ pub fn run() {
             )?;
 
             println!("工作助手应用程序启动成功");
-            log::info!("工作助手应用程序启动成功");
-            log::info!("版本: {}", env!("CARGO_PKG_VERSION"));
+                log::info!("WorkHelper 启动成功 - 版本: {}", env!("CARGO_PKG_VERSION"));
 
             // 创建启动画面窗口 - 在主窗口加载前先显示
             let splashscreen_window = tauri::WebviewWindowBuilder::new(
@@ -910,7 +850,7 @@ pub fn run() {
             // 处理启动画面窗口创建结果
             match splashscreen_window {
                 Ok(_) => {
-                    log::info!("启动画面窗口创建成功");
+        
                     println!("启动画面窗口创建成功");
                 }
                 Err(e) => {
@@ -921,7 +861,7 @@ pub fn run() {
 
             // 主窗口保持隐藏状态，等待前端完全加载完成
             if let Some(main_window) = app.get_webview_window("main") {
-                log::info!("主窗口已创建但保持隐藏");
+    
                 println!("主窗口已创建但保持隐藏");
 
                 // 确保主窗口隐藏，避免与启动画面同时显示
