@@ -766,7 +766,6 @@ onMounted(async () => {
 
             .version-info {
                 cursor: pointer;
-                padding: 4px 8px;
                 border-radius: 4px;
                 transition: all 0.2s ease;
 
