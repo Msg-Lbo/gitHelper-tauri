@@ -1,6 +1,6 @@
 [package]
 name = "workHelper"
-version = "0.0.1"
+version = "0.0.2"
 description = "一个方便公司提交与修改OA日报周报的管理工具"
 authors = ["Msg-Lbo <msglbo@foxmail.com>"]
 license = "MIT"

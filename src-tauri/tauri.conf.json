@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "WorkHelper",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "identifier": "com.msglbo.workhelper",
   "build": {
     "frontendDist": "../dist",
