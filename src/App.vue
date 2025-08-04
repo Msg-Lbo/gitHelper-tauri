@@ -50,7 +50,7 @@
                                 <!-- 主要功能区域 -->
                                 <div class="nav-section">
                                     <div class="nav-section-title">主要功能</div>
-                                    <ul class="nav-list">
+                                    <ul class="nav-list flex flex-col gap-5">
                                         <!-- 日/周报总结 -->
                                         <li
                                             class="nav-item flex align-center gap-15"
@@ -86,7 +86,7 @@
                                 <!-- 系统设置区域 -->
                                 <div class="nav-section">
                                     <div class="nav-section-title">系统设置</div>
-                                    <ul class="nav-list">
+                                    <ul class="nav-list flex flex-col gap-5">
                                         <!-- 设置页面 -->
                                         <li
                                             class="nav-item flex align-center gap-15"
@@ -684,7 +684,7 @@ onMounted(async () => {
                 padding: 0;
 
                 .nav-item {
-                    padding: 12px 20px;
+                    padding: 6px 20px;
                     margin: 0 12px;
                     border-radius: 8px;
                     cursor: pointer;

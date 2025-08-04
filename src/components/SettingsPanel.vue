@@ -63,7 +63,7 @@
                     <h3 class="card-title">模板配置</h3>
                     <p class="card-description">自定义日报和周报生成模板</p>
                 </div>
-                <div class="card-content">
+                <div class="card-content" >
                     <div class="template-section">
                         <!-- 日报模板配置 -->
                         <div class="form-group">
@@ -273,7 +273,7 @@ loadSettings();
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);  // 阴影
     overflow: visible;              // 允许内容溢出，避免被裁剪
     flex-shrink: 0;                 // 防止卡片被压缩
-
+    margin-bottom: 10px;
     .card-header {
         padding: 20px 24px 16px;
         border-bottom: 1px solid #f1f5f9;
