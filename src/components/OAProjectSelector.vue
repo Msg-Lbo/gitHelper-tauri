@@ -36,10 +36,16 @@
       <div class="projects-section flex-1 overflow-hidden">
         <n-spin :show="loading" class="loading-container">
           <div v-if="filteredProjects.length === 0 && !loading" class="empty-state flex flex-col align-center justify-center h-full gap-15">
-            <div class="empty-icon">🔍</div>
-            <div class="empty-text">{{ searchKeyword ? '未找到匹配的项目' : '暂无项目数据' }}</div>
+            <div class="empty-icon">{{ getEmptyStateIcon() }}</div>
+            <div class="empty-text">{{ getEmptyStateText() }}</div>
             <div class="empty-description">
-              {{ searchKeyword ? '请尝试其他关键词' : '请先登录OA系统获取项目列表' }}
+              {{ getEmptyStateDescription() }}
+            </div>
+            <!-- 如果已登录但无数据，显示重新加载按钮 -->
+            <div v-if="OATokenManager.isLoggedIn() && !searchKeyword" class="empty-actions">
+              <n-button @click="loadOAProjects" type="primary" size="small">
+                重新加载
+              </n-button>
             </div>
           </div>
           <div v-else-if="!loading" class="projects-list">
@@ -101,7 +107,7 @@ import {
   useMessage
 } from 'naive-ui'
 import { SearchOutline, CheckmarkCircleOutline } from '@vicons/ionicons5'
-import { getMyProjectList, type ProjectInfo, type ProjectListParams } from '../api/oa'
+import { getMyProjectList, type ProjectInfo, type ProjectListParams, OATokenManager } from '../api/oa'
 
 // ==================== 组件属性和事件 ====================
 interface Props {
@@ -153,6 +159,14 @@ const loadOAProjects = async () => {
   try {
     loading.value = true
 
+    // 检查用户是否已登录OA系统
+    if (!OATokenManager.isLoggedIn()) {
+      oaProjects.value = []
+      message.warning('请先登录OA系统')
+      loading.value = false
+      return
+    }
+
     // 先加载第一页获取总数
     const firstPageParams: ProjectListParams = {
       projectName: '',
@@ -188,13 +202,22 @@ const loadOAProjects = async () => {
       }
 
       oaProjects.value = allProjects
+      
+      if (allProjects.length === 0) {
+        message.warning('当前账户下暂无可用项目，请联系管理员')
+      }
     } else {
       throw new Error(firstResponse.msg || '获取项目列表失败')
     }
 
   } catch (error: any) {
-    console.error('加载OA项目失败:', error)
-    message.error(error?.message || '加载项目列表失败，请检查网络连接')
+    // 检查是否是认证相关错误
+    if (error?.message?.includes('登录已过期') || error?.message?.includes('401')) {
+      message.error('登录已过期，请重新登录OA系统')
+    } else {
+      message.error(error?.message || '加载项目列表失败，请检查网络连接')
+    }
+    
     oaProjects.value = []
   } finally {
     loading.value = false
@@ -215,7 +238,31 @@ const selectProject = (project: ProjectInfo) => {
   selectedProject.value = project
 }
 
+/**
+ * 获取空状态图标
+ */
+const getEmptyStateIcon = () => {
+  if (searchKeyword.value) return '🔍'
+  return OATokenManager.isLoggedIn() ? '📋' : '🔒'
+}
 
+/**
+ * 获取空状态文本
+ */
+const getEmptyStateText = () => {
+  if (searchKeyword.value) return '未找到匹配的项目'
+  return OATokenManager.isLoggedIn() ? '暂无项目数据' : '需要登录OA系统'
+}
+
+/**
+ * 获取空状态描述
+ */
+const getEmptyStateDescription = () => {
+  if (searchKeyword.value) return '请尝试其他关键词'
+  return OATokenManager.isLoggedIn() 
+    ? '请刷新重试或联系管理员' 
+    : '请先在OA系统页面登录，然后重新打开此弹窗'
+}
 
 /**
  * 处理取消
@@ -249,6 +296,10 @@ const handleModalClose = () => {
  */
 watch(() => props.show, (isShow) => {
   if (isShow) {
+    // 重置状态
+    selectedProject.value = null
+    searchKeyword.value = ''
+    // 加载项目列表
     loadOAProjects()
   }
 })
@@ -431,6 +482,10 @@ watch(() => props.show, (isShow) => {
   .empty-description {
     font-size: 14px;
     color: #94a3b8;
+  }
+  
+  .empty-actions {
+    margin-top: 16px;
   }
 }
 

@@ -128,13 +128,30 @@ async fn run_git_log(command: String, project_path: String) -> Result<String, St
     }
 
     // 使用PowerShell执行Git命令，正确处理引号和中文路径
-    let output = Command::new("powershell")
-        .arg("-Command")
-        .arg(&command)
-        .current_dir(&working_path)
-        .env("LANG", "zh_CN.UTF-8")
-        .env("LC_ALL", "zh_CN.UTF-8")
-        .output();
+    let output = {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            Command::new("powershell")
+                .arg("-Command")
+                .arg(&command)
+                .current_dir(&working_path)
+                .env("LANG", "zh_CN.UTF-8")
+                .env("LC_ALL", "zh_CN.UTF-8")
+                .creation_flags(0x08000000) // CREATE_NO_WINDOW - 隐藏控制台窗口
+                .output()
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Command::new("powershell")
+                .arg("-Command")
+                .arg(&command)
+                .current_dir(&working_path)
+                .env("LANG", "zh_CN.UTF-8")
+                .env("LC_ALL", "zh_CN.UTF-8")
+                .output()
+        }
+    };
 
     match output {
         Ok(output) => {
